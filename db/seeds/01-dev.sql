@@ -1,4 +1,3 @@
--- Seed data for users
 INSERT INTO users (id, username, email, created_by, created_at, modified_by, modified_at) VALUES
   ('00000000-0000-0000-0000-000000000001', 'user01', 'user01@example.com', NULL, NOW(), NULL, NOW()),
   ('00000000-0000-0000-0000-000000000002', 'user02', 'user02@example.com', NULL, NOW(), NULL, NOW()),
@@ -22,6 +21,10 @@ INSERT INTO users (id, username, email, created_by, created_at, modified_by, mod
   ('00000000-0000-0000-0000-000000000020', 'user20', 'user20@example.com', NULL, NOW(), NULL, NOW()),
   ('00000000-0000-0000-0000-000000000021', 'apitest01', 'apitest01@example.com', NULL, NOW(), NULL, NOW());
 
-INSERT INTO user_auth
-(user_id, password_hash, created_at, modified_at)
-VALUES('00000000-0000-0000-0000-000000000021', '$argon2id$v=19$m=19456,t=2,p=1$XBFwBY52C9SpzkxON1OTLg$djDqZQvzxFKc9HOCWyZfKy+RlFTs0BJFSkcw/Tos14c', NOW(), NOW());
+INSERT INTO user_auth (user_id, password_hash, created_at, modified_at)
+VALUES (
+  '00000000-0000-0000-0000-000000000021',
+  '$argon2id$v=19$m=19456,t=2,p=1$XBFwBY52C9SpzkxON1OTLg$djDqZQvzxFKc9HOCWyZfKy+RlFTs0BJFSkcw/Tos14c',
+  NOW(),
+  NOW()
+);

@@ -7,6 +7,7 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY target/release/einerleih /app/einerleih
+COPY db /app/db
 COPY static /app/static
 
 RUN mkdir -p /app/assets/private/foto \

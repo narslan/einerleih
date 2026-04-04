@@ -47,6 +47,23 @@ Für Tests gilt getrennt davon:
 - empfohlen ist eine separate DB wie `einerleih_test`
 - die Tests setzen das Schema dort vollständig zurück
 
+### Datenbankmigrationen
+
+Die SQL-Migrationen liegen unter [`db/migrations`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/db/migrations).
+Optionale Seed-Daten liegen unter [`db/seeds`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/db/seeds).
+
+Verfügbare Kommandos:
+
+```bash
+cargo run -- migrate up
+cargo run -- migrate down
+cargo run -- migrate reset
+cargo run -- migrate status
+cargo run -- seed
+```
+
+Der normale Serverstart führt `migrate up` automatisch aus, bevor der HTTP-Server startet.
+
 ## Release Und Deployment
 
 Der Release-Pfad ist auf ein lokal gebautes Rust-Binary ausgelegt. Das Docker-Image baut den Rust-Code nicht selbst, sondern verpackt:
@@ -108,8 +125,8 @@ Wichtig:
 
 - `docker-compose.yml` nutzt die Rust-Config-Keys wie `PG__URL` und `LISTEN`, nicht `DATABASE_URL`.
 - Hochgeladene Dateien liegen im Volume `app_assets`.
-- Die Datenbank liegt im Volume `pgdata`.
-- Das Compose-File führt aktuell keine Datenbankmigrationen aus. Das Schema muss vorher bereitgestellt werden.
+- Die Datenbank liegt unter `./postgres_data`.
+- Der App-Container führt beim Start automatisch ausstehende `up`-Migrationen aus.
 
 
 ### Datenbank vorbereiten (PostgreSQL)

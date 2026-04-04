@@ -1,6 +1,6 @@
 -- ===============================================
--- 00-drop-tables.sql
--- Drops the application schema in dependency order.
+-- 0001_initial.down.sql
+-- Roll back the initial schema in dependency order
 -- ===============================================
 
 DROP TABLE IF EXISTS uploaded_files;
