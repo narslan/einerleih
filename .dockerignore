@@ -1,0 +1,14 @@
+.git
+.codex
+.env
+.env.test
+target
+!target/release
+target/release/*
+!target/release/einerleih
+tests
+db-seeds
+assets/private
+notizen.md
+ueberblick.md
+vergleich_leihlaeden.md

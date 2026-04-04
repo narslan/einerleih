@@ -8,4 +8,9 @@ CREATE SCHEMA public;
 GRANT ALL ON SCHEMA public TO postgres;
 GRANT ALL ON SCHEMA public TO public;
 
+cargo build --release
+  ./scripts/build-release-image.sh ghcr.io/narslan/einerleih:latest
+  echo $GITHUB_TOKEN |  docker push ghcr.io/narslan/einerleih:latest
+  #echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin
+  ./scripts/push-ghcr.sh ghcr.io/narslan/einerleih:latest
 ```

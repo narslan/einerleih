@@ -3,14 +3,14 @@
 ## Ziel des Projektes
 
 Einerleih ist der Start einer Verleihplattform für Gegenstände/Gemeingüter.
-Ziel ist es, dass Nutzende ohne Registrierung den Katalog durchsuchen und die Verfügbarkeit sehen können.
+Nutzende kännen ohne Registrierung den Katalog durchsuchen und die Verfügbarkeit sehen können.
 
 Das Projekt hat zwei zentrale Säulen:
 
 - **Nutzer-Oberfläche**: Katalog + Informationsseiten (FAQ, Über Uns, Kontakt)
-- **Admin-Oberfläche**: Verwaltung von Inhalten (z.B. Artikel, Stationen, Zeitrahmen) 
+- **Admin-Oberfläche**: Verwaltung von Inhalten (z.B. Artikel, Zeitrahmen) 
 
-Technisch ist die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Frontend.
+Die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Frontend.
 
 ## Installation
 
@@ -18,16 +18,71 @@ Technisch ist die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separ
 
 - Rust/Axum (für Admin/REST-API)
 - PostgreSQL 
-- Node.js + `pnpm` (für das Frontend, welches sich in einem anderen Repo befindet)
+- Node.js + `pnpm` (für das Frontend, welches sich in einem anderen [Repo](https://github.com/narslan/einerleih_ui) befindet)
+
+## Release Und Deployment
+
+Der Release-Pfad ist auf ein lokal gebautes Rust-Binary ausgelegt. Das Docker-Image baut den Rust-Code nicht selbst, sondern verpackt:
+
+- `target/release/einerleih`
+- die bereits gebauten Frontend-Dateien unter `static/`
+
+### Lokalen Release-Build Erzeugen
+
+```bash
+cargo build --release
+```
+
+Die Binärdatei liegt danach unter:
+
+```bash
+target/release/einerleih
+```
+
+Voraussetzung für das Docker-Image:
+
+- Das Frontend liegt bereits gebaut unter `static/dist/`
+- Der Release-Build nutzt vendorte Swagger-UI-Assets und braucht dafür kein Netzwerk
+
+### Docker-Image Lokal Bauen
+
+```bash
+./scripts/build-release-image.sh ghcr.io/narslan/einerleih:latest
+```
+
+Oder direkt:
+
+```bash
+docker build -t ghcr.io/narslan/einerleih:latest .
+```
+
+### Bei GHCR Einloggen Und Pushen
+
+```bash
+echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin
+./scripts/push-ghcr.sh ghcr.io/narslan/einerleih:latest
+```
+
+### Compose Deployment
+
+`docker-compose.yml` erwartet mindestens diese Variablen:
+
+- `POSTGRES_PASSWORD`
+- `JWT_SECRET_KEY`
+- optional `IMAGE_REF` für ein bestimmtes GHCR-Tag
+
+Start:
+
+```bash
+docker compose up -d
+```
+
+Wichtig:
+
+- `docker-compose.yml` nutzt die Rust-Config-Keys wie `PG__URL` und `LISTEN`, nicht `DATABASE_URL`.
+- Hochgeladene Dateien liegen im Volume `app_assets`.
+- Die Datenbank liegt im Volume `pgdata`.
+- Das Compose-File führt aktuell keine Datenbankmigrationen aus. Das Schema muss vorher bereitgestellt werden.
 
 
 ### Datenbank vorbereiten (PostgreSQL)
-
-Für den lokalen Entwicklungsbetrieb verwenden wir PostgreSQL. Setze dafür `DATABASE_URL` und lege die DB + Tabellen an:
-
-- `db-seeds/00-drop-tables.sql` leert das Schema.
-- `db-seeds/01-tables.sql` baut das aktuelle Schema neu auf.
-- `db-seeds/02-seed.sql` enthält Seed-Daten.
-
-Die Testumgebung verwendet dieselben SQL-Dateien über `src/common/db_migrations.rs`, damit es keine zweite, abweichende Schemadefinition mehr gibt.
- codex resume 019d520f-69e0-7f20-b2fa-8ea86c7b2fb0
