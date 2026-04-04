@@ -20,6 +20,33 @@ Die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Front
 - PostgreSQL 
 - Node.js + `pnpm` (für das Frontend, welches sich in einem anderen [Repo](https://github.com/narslan/einerleih_ui) befindet)
 
+### Umgebungsvariablen
+
+Es gibt jetzt eine Vorlage unter [`.env.example`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/.env.example).
+
+Praktisch:
+
+- `.env` ist für lokale Entwicklung mit `cargo run`
+- dieselbe `.env` wird auch von `docker compose` für Variablenersetzung gelesen
+- Secrets gehören in `.env`, nicht ins Docker-Image
+
+Für lokalen Rust-Start sind besonders relevant:
+
+- `LISTEN`
+- `PG__URL`
+- `JWT_SECRET_KEY`
+
+Für `docker compose` sind zusätzlich relevant:
+
+- `POSTGRES_PASSWORD`
+- optional `IMAGE_REF`
+
+Für Tests gilt getrennt davon:
+
+- `.env.test` nutzt eine eigene Datenbank unter `PG__URL`
+- empfohlen ist eine separate DB wie `einerleih_test`
+- die Tests setzen das Schema dort vollständig zurück
+
 ## Release Und Deployment
 
 Der Release-Pfad ist auf ein lokal gebautes Rust-Binary ausgelegt. Das Docker-Image baut den Rust-Code nicht selbst, sondern verpackt:
@@ -65,7 +92,7 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u <github-user> --password-stdin
 
 ### Compose Deployment
 
-`docker-compose.yml` erwartet mindestens diese Variablen:
+`docker-compose.yml` erwartet mindestens diese Variablen aus `.env`:
 
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET_KEY`
