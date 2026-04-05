@@ -36,8 +36,3 @@ cargo run -- seed
 ```
 
 Der normale Serverstart führt `migrate up` automatisch aus, bevor der HTTP-Server startet.
-
-### Deployment-Hinweis
-
-Im Compose-Setup nutzt PostgreSQL 18 einen neuen Datenpfad unter `./postgres_data_v18`.
-Damit bleibt ein alter Datenbestand unter `./postgres_data` unberührt und der neue Cluster startet sauber getrennt.
