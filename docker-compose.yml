@@ -1,7 +1,7 @@
 services:
-  db:
+  postgres:
     image: postgres:18-alpine
-    container_name: einerleih_db
+    container_name: einerleih_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: einerleih
@@ -9,23 +9,23 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - ./postgres_data:/var/lib/postgresql
+      - ./postgres_data_v18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U einerleih -d einerleih"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  app:
+  backend:
     image: ${IMAGE_REF:-ghcr.io/narslan/einerleih:latest}
-    container_name: einerleih_app
+    container_name: einerleih_backend
     restart: unless-stopped
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
     environment:
       LISTEN: 0.0.0.0:8000
-      PG__URL: postgres://einerleih:${POSTGRES_PASSWORD}@db:5432/einerleih
+      PG__URL: postgres://einerleih:${POSTGRES_PASSWORD}@postgres:5432/einerleih
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       ASSETS_PUBLIC_PATH: /app/static
       ASSETS_PUBLIC_URL: /static

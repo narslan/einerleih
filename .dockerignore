@@ -9,6 +9,8 @@ target/release/*
 tests
 db-seeds
 assets/private
+postgres_data
+postgres_data_v18
 notizen.md
 ueberblick.md
 vergleich_leihlaeden.md
