@@ -1,7 +1,6 @@
-
-Ich möchte bestehende Leihplattformen_
+Die Liste der Leihläden in Deutschland
+Auch hier gibt es eine Liste: [Leihladen Vernetzung](https://leihladen-vernetzung.de/liste/)
 [Awesome Leihladen](https://github.com/mojoaxel/awesome-leihladen)
-
 
 | Seite| Ort | Techstack| Zustand | Verleihmethode | Aussagekraft besitzend? Anschaulich?|
 |:---|:---:|---:|:---|:---:|:---:| 
@@ -22,7 +21,7 @@ Ich möchte bestehende Leihplattformen_
 | [Westhausener Geraetering "weShare"](https://westhausener-geraetering-weshare.de/) | Westhausen | WordPress (Commonsbooking) | aktiv | - | schlecht |
 | [Deleila (Lippe im Wandel)](https://lippeimwandel.de/leihkatalog/) | Detmold | WordPress (Commonsbooking) | aktiv | - | schlecht |
 | [Leihla Fürth](https://leihla.bluepingu.de/) | Fürth | WordPress (Commonsbooking) | aktiv | - | schlecht  |
-
+| [Leihla Fürth](https://leihla.bluepingu.de/) | Fürth | WordPress (Commonsbooking) | aktiv | - | schlecht  |
 
 
 

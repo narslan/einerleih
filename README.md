@@ -23,7 +23,7 @@ Die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Front
 ### Datenbankmigrationen
 
 Die SQL-Migrationen liegen unter [`db/migrations`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/db/migrations).
-Optionale Seed-Daten liegen unter [`db/seeds`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/db/seeds).
+Optionale Entwicklungs-Seed-Daten liegen unter [`db/seeds`](/home/nevroz/go/src/github.com/narslan/leihladen/einerleih/db/seeds).
 
 Verfügbare Kommandos:
 
@@ -36,3 +36,4 @@ cargo run -- seed
 ```
 
 Der normale Serverstart führt `migrate up` automatisch aus, bevor der HTTP-Server startet.
+Frontend-relevante Basisdaten für `towns` und `categories` werden ebenfalls über Migrationen angelegt und stehen damit auch nach einem Produktions-Deployment automatisch bereit. Der `seed`-Befehl bleibt für zusätzliche Development-Daten gedacht.
