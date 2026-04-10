@@ -5,6 +5,7 @@
 
 DROP TABLE IF EXISTS uploaded_files;
 DROP TABLE IF EXISTS event_calendar;
+DROP TABLE IF EXISTS booking;
 DROP TABLE IF EXISTS user_auth;
 DROP TABLE IF EXISTS article;
 DROP TABLE IF EXISTS categories;

@@ -3,6 +3,8 @@ use std::sync::Arc;
 use crate::domains::{
     article::{ArticleServiceTrait, ArticleWorkflowServiceTrait},
     auth::AuthServiceTrait,
+    booking::BookingServiceTrait,
+    calendar::CalendarServiceTrait,
     file::FileServiceTrait,
     user::UserServiceTrait,
 };
@@ -25,6 +27,12 @@ pub struct AppState {
     /// Service handling file-related logic.
     pub file_service: Arc<dyn FileServiceTrait>,
 
+    /// Service handling article calendar entries.
+    pub calendar_service: Arc<dyn CalendarServiceTrait>,
+
+    /// Service handling booking requests and status transitions.
+    pub booking_service: Arc<dyn BookingServiceTrait>,
+
     /// Global application configuration.
     pub config: Config,
 }
@@ -37,6 +45,8 @@ impl AppState {
         article_service: Arc<dyn ArticleServiceTrait>,
         article_workflow_service: Arc<dyn ArticleWorkflowServiceTrait>,
         file_service: Arc<dyn FileServiceTrait>,
+        calendar_service: Arc<dyn CalendarServiceTrait>,
+        booking_service: Arc<dyn BookingServiceTrait>,
     ) -> Self {
         Self {
             config,
@@ -45,6 +55,8 @@ impl AppState {
             article_service,
             article_workflow_service,
             file_service,
+            calendar_service,
+            booking_service,
         }
     }
 }

@@ -23,8 +23,10 @@ use tower_http::{
 use crate::{
     common::{app_state::AppState, error::handle_error, jwt},
     domains::{
-        auth::{UserAuthApiDoc, user_auth_routes},
         article::{ArticleApiDoc, protected_article_routes, public_article_routes},
+        auth::{UserAuthApiDoc, user_auth_routes},
+        booking::{BookingApiDoc, protected_booking_routes},
+        calendar::{CalendarApiDoc, protected_calendar_routes},
         file::{FileApiDoc, protected_file_routes, public_file_routes},
         user::{UserApiDoc, user_routes},
     },
@@ -50,6 +52,8 @@ fn create_swagger_ui() -> SwaggerUi {
         )
         .url("/api-docs/user/openapi.json", UserApiDoc::openapi())
         .url("/api-docs/article/openapi.json", ArticleApiDoc::openapi())
+        .url("/api-docs/calendar/openapi.json", CalendarApiDoc::openapi())
+        .url("/api-docs/booking/openapi.json", BookingApiDoc::openapi())
         .url("/api-docs/file/openapi.json", FileApiDoc::openapi())
 }
 
@@ -74,7 +78,12 @@ pub fn create_router(state: AppState) -> Router {
     // Protected API routes
     let protected_routes = Router::new()
         .nest("/user", user_routes())
-        .nest("/article", protected_article_routes())
+        .nest(
+            "/article",
+            protected_article_routes()
+                .merge(protected_calendar_routes())
+                .merge(protected_booking_routes()),
+        )
         .nest("/file", protected_file_routes())
         // enforce JWT authentication
         .route_layer(middleware::from_fn(jwt::jwt_auth))
@@ -88,7 +97,6 @@ pub fn create_router(state: AppState) -> Router {
     let public_file_routes = Router::new()
         .nest("/file", public_file_routes())
         .layer(middleware::from_fn(make_request_response_inspecter(false)));
-
 
     // setup assets routes
     let static_files = ServeDir::new("static/dist")

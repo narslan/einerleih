@@ -5,10 +5,13 @@ use deadpool_postgres::Pool;
 use crate::common::config::Config;
 use crate::domains::article::{ArticleServiceTrait, ArticleWorkflowServiceTrait};
 use crate::domains::auth::{AuthService, AuthServiceTrait};
+use crate::domains::booking::{BookingService, BookingServiceTrait};
+use crate::domains::calendar::{CalendarService, CalendarServiceTrait};
 use crate::domains::file::FileServiceTrait;
 use crate::domains::user::UserServiceTrait;
 use crate::{
-    common::app_state::AppState, domains::article::{ArticleService, ArticleWorkflowService},
+    common::app_state::AppState,
+    domains::article::{ArticleService, ArticleWorkflowService},
     domains::file::FileService,
     domains::user::UserService,
 };
@@ -24,6 +27,9 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         ArticleService::create_service(pool.clone());
     let article_workflow_service: Arc<dyn ArticleWorkflowServiceTrait> =
         ArticleWorkflowService::create_service(pool.clone(), file_service.clone());
+    let calendar_service: Arc<dyn CalendarServiceTrait> =
+        CalendarService::create_service(pool.clone());
+    let booking_service: Arc<dyn BookingServiceTrait> = BookingService::create_service(pool);
     AppState::new(
         config,
         auth_service,
@@ -31,6 +37,8 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         article_service,
         article_workflow_service,
         file_service,
+        calendar_service,
+        booking_service,
     )
 }
 

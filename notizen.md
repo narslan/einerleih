@@ -18,3 +18,7 @@ cargo build --release
   oder
   ./scripts/push-ghcr.sh ghcr.io/narslan/einerleih:latest
 ```
+
+
+  der nächste Schritt: Frontend-Use-Cases konkretisieren, also welche Ansicht zuerst angebunden wird, z. B. Artikeldetail-Verfügbarkeit, Admin-Kalenderpflege oder Buchungsanfrage-Flow.
+  codex resume 019d779f-c672-7491-9f7d-d6ce60e35b32
