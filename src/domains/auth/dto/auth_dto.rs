@@ -4,6 +4,12 @@ use validator::Validate;
 
 use crate::domains::user::dto::user_dto::UserDto;
 
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AuthPayload {
+    pub client_id: String,
+    pub client_secret: String,
+}
+
 #[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct AuthUserDto {
     pub user_id: uuid::Uuid,
@@ -22,5 +28,5 @@ pub struct SignUpDto {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AuthSessionDto {
     pub user: UserDto,
-    pub token: String,
+    pub roles: Vec<String>,
 }

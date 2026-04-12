@@ -17,6 +17,26 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users(email);
 
+CREATE TABLE roles (
+    role_id UUID PRIMARY KEY,
+    name VARCHAR(32) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_roles (
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, role_id)
+);
+
+CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
+
+INSERT INTO roles (role_id, name)
+VALUES
+    ('30000000-0000-0000-0000-000000000001', 'admin'),
+    ('30000000-0000-0000-0000-000000000002', 'user');
+
 CREATE TABLE towns (
     town_id UUID PRIMARY KEY,
     name VARCHAR(36) NOT NULL

@@ -19,6 +19,9 @@ pub enum AppError {
     #[error("Database error: {0}")]
     DatabaseError(#[from] PoolError), // Used for database-related errors
 
+    #[error("Database query error: {0}")]
+    DatabaseQueryError(#[from] tokio_postgres::Error),
+
     #[error("Not found: {0}")]
     NotFound(String), // Used for not found errors
 
@@ -49,10 +52,8 @@ pub enum AppError {
     WrongCredentials,
     #[error("Missing credentials")]
     MissingCredentials,
-    #[error("Invalid token")]
-    InvalidToken,
-    #[error("Token creation error")]
-    TokenCreation,
+    #[error("Unauthorized")]
+    Unauthorized,
     #[error("User not found")]
     UserNotFound,
 }
@@ -61,7 +62,9 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = match &self {
             AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
-            AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::DatabaseError(_) | AppError::DatabaseQueryError(_) => {
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::InternalError => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::Forbidden => StatusCode::FORBIDDEN,
@@ -71,8 +74,7 @@ impl IntoResponse for AppError {
             | AppError::UnsupportedFileExtension => StatusCode::BAD_REQUEST,
             AppError::WrongCredentials => StatusCode::UNAUTHORIZED,
             AppError::MissingCredentials => StatusCode::BAD_REQUEST,
-            AppError::InvalidToken => StatusCode::UNAUTHORIZED,
-            AppError::TokenCreation => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::UserNotFound => StatusCode::NOT_FOUND,
         };
 

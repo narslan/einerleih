@@ -18,8 +18,8 @@ use einerleih::{
 mod test_helpers;
 
 use test_helpers::{
-    TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_token, request_with_auth,
-    request_with_auth_body,
+    TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_session_cookie,
+    request_with_session, request_with_session_body, signup_and_get_session_cookie,
 };
 
 async fn create_article() -> Result<ArticleDto, AppError> {
@@ -35,8 +35,9 @@ async fn create_article() -> Result<ArticleDto, AppError> {
         modified_by: uuid::Uuid::nil(),
     };
 
-    let token = login_and_get_token().await;
-    let response = request_with_auth_body(Method::POST, "/article", &token, &payload).await;
+    let session_cookie = login_and_get_session_cookie().await;
+    let response =
+        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
     let (parts, body) = response.into_parts();
     let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
@@ -64,13 +65,13 @@ fn create_booking_payload(start_hour: u32, end_hour: u32) -> CreateBookingDto {
 
 async fn create_booking(
     article_id: uuid::Uuid,
-    token: &str,
+    session_cookie: &str,
     payload: &CreateBookingDto,
 ) -> BookingDto {
-    let response = request_with_auth_body(
+    let response = request_with_session_body(
         Method::POST,
         &format!("/article/{article_id}/bookings"),
-        token,
+        session_cookie,
         payload,
     )
     .await;
@@ -87,25 +88,48 @@ async fn create_booking(
 }
 
 #[tokio::test]
-async fn test_create_confirm_and_list_booking() {
+async fn test_regular_user_can_create_but_not_administer_booking() {
     let article = create_article()
         .await
         .expect("Failed to create article for booking test");
-    let token = login_and_get_token().await;
-    let payload = create_booking_payload(8, 12);
+    let user_session_cookie = signup_and_get_session_cookie().await;
+    let payload = create_booking_payload(13, 16);
 
-    let booking = create_booking(article.article_id, &token, &payload).await;
-    assert_eq!(booking.article_id, article.article_id);
+    let booking = create_booking(article.article_id, &user_session_cookie, &payload).await;
     assert_eq!(booking.status, BookingStatus::Requested);
-    assert_eq!(booking.requester_email, payload.requester_email);
 
-    let response = request_with_auth(
+    let response = request_with_session(
         Method::POST,
         &format!(
             "/article/{}/bookings/{}/confirm",
             article.article_id, booking.booking_id
         ),
-        &token,
+        &user_session_cookie,
+    )
+    .await;
+    assert_eq!(response.into_parts().0.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_create_confirm_and_list_booking() {
+    let article = create_article()
+        .await
+        .expect("Failed to create article for booking test");
+    let session_cookie = login_and_get_session_cookie().await;
+    let payload = create_booking_payload(8, 12);
+
+    let booking = create_booking(article.article_id, &session_cookie, &payload).await;
+    assert_eq!(booking.article_id, article.article_id);
+    assert_eq!(booking.status, BookingStatus::Requested);
+    assert_eq!(booking.requester_email, payload.requester_email);
+
+    let response = request_with_session(
+        Method::POST,
+        &format!(
+            "/article/{}/bookings/{}/confirm",
+            article.article_id, booking.booking_id
+        ),
+        &session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -121,10 +145,10 @@ async fn test_create_confirm_and_list_booking() {
     assert!(confirmed.approved_by.is_some());
     assert!(confirmed.approved_at.is_some());
 
-    let response = request_with_auth(
+    let response = request_with_session(
         Method::GET,
         &format!("/article/{}/bookings", article.article_id),
-        &token,
+        &session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -145,16 +169,21 @@ async fn test_rejects_overlapping_confirmed_booking() {
     let article = create_article()
         .await
         .expect("Failed to create article for booking test");
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
 
-    let first = create_booking(article.article_id, &token, &create_booking_payload(8, 12)).await;
-    let response = request_with_auth(
+    let first = create_booking(
+        article.article_id,
+        &session_cookie,
+        &create_booking_payload(8, 12),
+    )
+    .await;
+    let response = request_with_session(
         Method::POST,
         &format!(
             "/article/{}/bookings/{}/confirm",
             article.article_id, first.booking_id
         ),
-        &token,
+        &session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -166,15 +195,19 @@ async fn test_rejects_overlapping_confirmed_booking() {
         response_body.0
     );
 
-    let overlapping =
-        create_booking(article.article_id, &token, &create_booking_payload(10, 11)).await;
-    let response = request_with_auth(
+    let overlapping = create_booking(
+        article.article_id,
+        &session_cookie,
+        &create_booking_payload(10, 11),
+    )
+    .await;
+    let response = request_with_session(
         Method::POST,
         &format!(
             "/article/{}/bookings/{}/confirm",
             article.article_id, overlapping.booking_id
         ),
-        &token,
+        &session_cookie,
     )
     .await;
     assert_eq!(response.into_parts().0.status, StatusCode::BAD_REQUEST);

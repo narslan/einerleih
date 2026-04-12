@@ -9,10 +9,7 @@ use axum::{
     routing::{delete, get, post, put},
 };
 
-use utoipa::{
-    OpenApi,
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
-};
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -27,30 +24,10 @@ use utoipa::{
     components(schemas(UserDto, SearchUserDto, CreateUserDto, UpdateUserDto)),
     tags(
         (name = "Users", description = "User management endpoints")
-    ),
-    security(
-        ("bearer_auth" = [])
-    ),
-    modifiers(&UserApiDoc)
+    )
 )]
 /// This struct is used to generate OpenAPI documentation for the user routes.
 pub struct UserApiDoc;
-
-impl utoipa::Modify for UserApiDoc {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.as_mut().unwrap();
-        components.add_security_scheme(
-            "bearer_auth",
-            SecurityScheme::Http(
-                HttpBuilder::new()
-                    .scheme(HttpAuthScheme::Bearer)
-                    .bearer_format("JWT")
-                    .description(Some("Input your `<your‑jwt>`"))
-                    .build(),
-            ),
-        )
-    }
-}
 
 pub fn user_routes() -> Router<AppState> {
     Router::new()

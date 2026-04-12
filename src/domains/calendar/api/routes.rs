@@ -10,10 +10,7 @@ use axum::{
     Router,
     routing::{delete, get, post, put},
 };
-use utoipa::{
-    OpenApi,
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
-};
+use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
@@ -34,29 +31,9 @@ use utoipa::{
     )),
     tags(
         (name = "Calendar", description = "Article calendar entry endpoints")
-    ),
-    security(
-        ("bearer_auth" = [])
-    ),
-    modifiers(&CalendarApiDoc)
+    )
 )]
 pub struct CalendarApiDoc;
-
-impl utoipa::Modify for CalendarApiDoc {
-    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
-        let components = openapi.components.as_mut().unwrap();
-        components.add_security_scheme(
-            "bearer_auth",
-            SecurityScheme::Http(
-                HttpBuilder::new()
-                    .scheme(HttpAuthScheme::Bearer)
-                    .bearer_format("JWT")
-                    .description(Some("Input your `<your‑jwt>`"))
-                    .build(),
-            ),
-        )
-    }
-}
 
 pub fn protected_calendar_routes() -> Router<AppState> {
     Router::new()

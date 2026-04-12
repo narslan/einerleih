@@ -28,3 +28,11 @@ VALUES (
   NOW(),
   NOW()
 );
+
+INSERT INTO user_roles (user_id, role_id)
+SELECT
+  '00000000-0000-0000-0000-000000000021'::UUID,
+  roles.role_id
+FROM roles
+WHERE roles.name = 'admin'
+ON CONFLICT (user_id, role_id) DO NOTHING;

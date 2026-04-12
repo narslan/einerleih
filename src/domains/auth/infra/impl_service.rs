@@ -1,12 +1,8 @@
 use crate::{
-    common::{
-        error::AppError,
-        hash_utils,
-        jwt::{AuthBody, AuthPayload, make_jwt_token},
-    },
+    common::{error::AppError, hash_utils},
     domains::auth::{
         domain::{model::UserAuth, repository::UserAuthRepository, service::AuthServiceTrait},
-        dto::auth_dto::AuthUserDto,
+        dto::auth_dto::{AuthPayload, AuthUserDto},
         infra::impl_repository::UserAuthRepo,
     },
 };
@@ -62,9 +58,8 @@ impl AuthServiceTrait for AuthService {
 
     /// Authenticates a user by checking the provided credentials
     /// against the stored credentials in the database.
-    /// If the credentials are valid, it generates a JWT token for the user.
     /// If the credentials are invalid, it returns an error.
-    async fn login_user(&self, auth_payload: AuthPayload) -> Result<AuthBody, AppError> {
+    async fn login_user(&self, auth_payload: AuthPayload) -> Result<uuid::Uuid, AppError> {
         if auth_payload.client_id.is_empty() || auth_payload.client_secret.is_empty() {
             return Err(AppError::MissingCredentials);
         }
@@ -81,8 +76,6 @@ impl AuthServiceTrait for AuthService {
             return Err(AppError::WrongCredentials);
         }
 
-        let token = make_jwt_token(user_auth.user_id).map_err(|_| AppError::InternalError)?;
-
-        Ok(AuthBody::new(token))
+        Ok(user_auth.user_id)
     }
 }

@@ -3,7 +3,7 @@ use einerleih::{
     common::{
         bootstrap::{build_app_state, setup_tracing, shutdown_signal},
         config::{self as app_config, setup_database},
-        db_migrations,
+        db_migrations, session_auth,
     },
 };
 
@@ -30,6 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     db_migrations::apply_schema(&pool).await?;
+    session_auth::ensure_bootstrap_admin(&pool, &config).await?;
     let state = build_app_state(pool, config.clone());
     let app = create_router(state);
 

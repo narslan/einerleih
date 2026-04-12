@@ -1,9 +1,9 @@
 use crate::{
     common::{
         app_state::AppState,
+        auth_context::AuthenticatedUser,
         dto::RestApiResponse,
         error::AppError,
-        jwt::Claims,
         multipart_helper::{parse_multipart_to_maps, parse_multipart_to_multi_maps},
     },
     domains::article::{
@@ -107,12 +107,12 @@ pub async fn get_article_towns(
 )]
 pub async fn create_article(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Json(payload): Json<CreateArticleDto>,
 ) -> Result<impl IntoResponse, AppError> {
     let mut create_article = payload;
-    create_article.created_by = claims.sub;
-    create_article.modified_by = claims.sub;
+    create_article.created_by = auth.id;
+    create_article.modified_by = auth.id;
     create_article
         .validate()
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
@@ -130,7 +130,7 @@ pub async fn create_article(
 )]
 pub async fn create_article_with_pictures(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
     let (fields, files): (
@@ -144,8 +144,8 @@ pub async fn create_article_with_pictures(
         description: required_field(&fields, "description")?,
         town: parse_uuid_field(&fields, "town")?,
         status: parse_article_status(required_field(&fields, "status")?.as_str())?,
-        created_by: claims.sub,
-        modified_by: claims.sub,
+        created_by: auth.id,
+        modified_by: auth.id,
     };
 
     create_article
@@ -172,7 +172,7 @@ pub async fn create_article_with_pictures(
 )]
 pub async fn update_article(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(payload): Json<UpdateArticleDtoWithIdDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -183,7 +183,7 @@ pub async fn update_article(
 
     // Set the modified_by field to the current article's ID.
     let mut payload = payload;
-    payload.modified_by = claims.sub;
+    payload.modified_by = auth.id;
 
     let article = state.article_service.update_article(id, payload).await?;
     Ok(RestApiResponse::success(article))
@@ -197,7 +197,7 @@ pub async fn update_article(
 )]
 pub async fn update_article_with_pictures(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     multipart: Multipart,
 ) -> Result<impl IntoResponse, AppError> {
@@ -211,7 +211,7 @@ pub async fn update_article_with_pictures(
         description: required_multi_field(&fields, "description")?,
         town: parse_uuid_multi_field(&fields, "town")?,
         status: parse_article_status(required_multi_field(&fields, "status")?.as_str())?,
-        modified_by: claims.sub,
+        modified_by: auth.id,
     };
 
     payload.validate().map_err(|err| {

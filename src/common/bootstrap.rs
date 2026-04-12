@@ -29,8 +29,10 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         ArticleWorkflowService::create_service(pool.clone(), file_service.clone());
     let calendar_service: Arc<dyn CalendarServiceTrait> =
         CalendarService::create_service(pool.clone());
-    let booking_service: Arc<dyn BookingServiceTrait> = BookingService::create_service(pool);
+    let booking_service: Arc<dyn BookingServiceTrait> =
+        BookingService::create_service(pool.clone());
     AppState::new(
+        pool,
         config,
         auth_service,
         user_service,

@@ -18,8 +18,8 @@ use einerleih::{
 mod test_helpers;
 
 use test_helpers::{
-    TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_token, request_with_auth,
-    request_with_auth_body,
+    TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_session_cookie,
+    request_with_session, request_with_session_body,
 };
 
 async fn create_article() -> Result<ArticleDto, AppError> {
@@ -35,8 +35,9 @@ async fn create_article() -> Result<ArticleDto, AppError> {
         modified_by: uuid::Uuid::nil(),
     };
 
-    let token = login_and_get_token().await;
-    let response = request_with_auth_body(Method::POST, "/article", &token, &payload).await;
+    let session_cookie = login_and_get_session_cookie().await;
+    let response =
+        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
     let (parts, body) = response.into_parts();
     let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
@@ -70,13 +71,13 @@ async fn test_create_and_list_article_calendar_entry() {
     let article = create_article()
         .await
         .expect("Failed to create article for calendar test");
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
     let payload = create_availability_entry_payload();
 
-    let response = request_with_auth_body(
+    let response = request_with_session_body(
         Method::POST,
         &format!("/article/{}/calendar", article.article_id),
-        &token,
+        &session_cookie,
         &payload,
     )
     .await;
@@ -91,10 +92,10 @@ async fn test_create_and_list_article_calendar_entry() {
     assert_eq!(created_entry.block_reason, None);
     assert_eq!(created_entry.summary, payload.summary);
 
-    let response = request_with_auth(
+    let response = request_with_session(
         Method::GET,
         &format!("/article/{}/calendar", article.article_id),
-        &token,
+        &session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -115,14 +116,14 @@ async fn test_rejects_invalid_calendar_entry_semantics() {
     let article = create_article()
         .await
         .expect("Failed to create article for calendar test");
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
     let mut payload = create_availability_entry_payload();
     payload.block_reason = Some(CalendarBlockReason::Repair);
 
-    let response = request_with_auth_body(
+    let response = request_with_session_body(
         Method::POST,
         &format!("/article/{}/calendar", article.article_id),
-        &token,
+        &session_cookie,
         &payload,
     )
     .await;

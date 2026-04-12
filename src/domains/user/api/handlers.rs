@@ -1,5 +1,7 @@
 use crate::{
-    common::{app_state::AppState, dto::RestApiResponse, error::AppError, jwt::Claims},
+    common::{
+        app_state::AppState, auth_context::AuthenticatedUser, dto::RestApiResponse, error::AppError,
+    },
     domains::user::dto::user_dto::{CreateUserDto, SearchUserDto, UpdateUserDto, UserDto},
 };
 
@@ -57,11 +59,11 @@ pub async fn get_users(State(state): State<AppState>) -> Result<impl IntoRespons
 )]
 pub async fn create_user(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Json(payload): Json<CreateUserDto>,
 ) -> Result<impl IntoResponse, AppError> {
     let mut create_user = payload;
-    create_user.modified_by = claims.sub;
+    create_user.modified_by = auth.id;
     create_user
         .validate()
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
@@ -80,7 +82,7 @@ pub async fn create_user(
 )]
 pub async fn update_user(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(payload): Json<UpdateUserDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -91,7 +93,7 @@ pub async fn update_user(
 
     // Set the modified_by field to the current user's ID.
     let mut payload = payload;
-    payload.modified_by = claims.sub;
+    payload.modified_by = auth.id;
 
     let user = state.user_service.update_user(id, payload).await?;
     Ok(RestApiResponse::success(user))

@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use deadpool_postgres::Pool;
+
 use crate::domains::{
     article::{ArticleServiceTrait, ArticleWorkflowServiceTrait},
     auth::AuthServiceTrait,
@@ -13,6 +15,9 @@ use super::config::Config;
 
 #[derive(Clone)]
 pub struct AppState {
+    /// Shared PostgreSQL pool for infrastructure adapters that are not exposed as domain services.
+    pub pool: Pool,
+
     /// Service handling authentication-related logic.
     pub auth_service: Arc<dyn AuthServiceTrait>,
     /// Service handling user-related logic.
@@ -39,6 +44,7 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(
+        pool: Pool,
         config: Config,
         auth_service: Arc<dyn AuthServiceTrait>,
         user_service: Arc<dyn UserServiceTrait>,
@@ -49,6 +55,7 @@ impl AppState {
         booking_service: Arc<dyn BookingServiceTrait>,
     ) -> Self {
         Self {
+            pool,
             config,
             auth_service,
             user_service,

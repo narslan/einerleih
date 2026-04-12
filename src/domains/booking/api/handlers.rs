@@ -7,7 +7,9 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    common::{app_state::AppState, dto::RestApiResponse, error::AppError, jwt::Claims},
+    common::{
+        app_state::AppState, auth_context::AuthenticatedUser, dto::RestApiResponse, error::AppError,
+    },
     domains::booking::dto::booking_dto::{
         BookingDto, BookingFilterDto, CreateBookingDto, UpdateBookingDto,
     },
@@ -66,7 +68,7 @@ pub async fn get_booking(
 )]
 pub async fn create_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path(article_id): Path<Uuid>,
     Json(payload): Json<CreateBookingDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -75,10 +77,10 @@ pub async fn create_booking(
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
 
     let mut payload = payload;
-    payload.created_by = claims.sub;
-    payload.modified_by = claims.sub;
+    payload.created_by = auth.id;
+    payload.modified_by = auth.id;
     if payload.requested_by.is_none() {
-        payload.requested_by = Some(claims.sub);
+        payload.requested_by = Some(auth.id);
     }
 
     let booking = state
@@ -101,7 +103,7 @@ pub async fn create_booking(
 )]
 pub async fn update_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<UpdateBookingDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -110,7 +112,7 @@ pub async fn update_booking(
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
 
     let mut payload = payload;
-    payload.modified_by = claims.sub;
+    payload.modified_by = auth.id;
 
     let booking = state
         .booking_service
@@ -131,12 +133,12 @@ pub async fn update_booking(
 )]
 pub async fn confirm_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, AppError> {
     let booking = state
         .booking_service
-        .confirm_booking(article_id, booking_id, claims.sub)
+        .confirm_booking(article_id, booking_id, auth.id)
         .await?;
     Ok(RestApiResponse::success(booking))
 }
@@ -153,12 +155,12 @@ pub async fn confirm_booking(
 )]
 pub async fn reject_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, AppError> {
     let booking = state
         .booking_service
-        .reject_booking(article_id, booking_id, claims.sub)
+        .reject_booking(article_id, booking_id, auth.id)
         .await?;
     Ok(RestApiResponse::success(booking))
 }
@@ -175,12 +177,12 @@ pub async fn reject_booking(
 )]
 pub async fn cancel_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, AppError> {
     let booking = state
         .booking_service
-        .cancel_booking(article_id, booking_id, claims.sub)
+        .cancel_booking(article_id, booking_id, auth.id)
         .await?;
     Ok(RestApiResponse::success(booking))
 }
@@ -197,12 +199,12 @@ pub async fn cancel_booking(
 )]
 pub async fn complete_booking(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
 ) -> Result<impl IntoResponse, AppError> {
     let booking = state
         .booking_service
-        .complete_booking(article_id, booking_id, claims.sub)
+        .complete_booking(article_id, booking_id, auth.id)
         .await?;
     Ok(RestApiResponse::success(booking))
 }

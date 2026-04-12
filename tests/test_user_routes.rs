@@ -7,7 +7,8 @@ use einerleih::{
 mod test_helpers;
 
 use test_helpers::{
-    TEST_AUTH_USER_ID, deserialize_json_body, login_and_get_token, request_with_auth_body,
+    TEST_AUTH_USER_ID, deserialize_json_body, login_and_get_session_cookie,
+    request_with_session_body,
 };
 
 async fn create_user() -> Result<(CreateUserDto, UserDto), AppError> {
@@ -18,8 +19,8 @@ async fn create_user() -> Result<(CreateUserDto, UserDto), AppError> {
         email,
         modified_by: uuid::Uuid::new_v4(),
     };
-    let token = login_and_get_token().await;
-    let response = request_with_auth_body(Method::POST, "/user", &token, &payload);
+    let session_cookie = login_and_get_session_cookie().await;
+    let response = request_with_session_body(Method::POST, "/user", &session_cookie, &payload);
     let (parts, body) = response.await.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
     let response_body: RestApiResponse<UserDto> = deserialize_json_body(body).await.unwrap();

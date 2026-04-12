@@ -15,8 +15,9 @@ use einerleih::{
 mod test_helpers;
 
 use test_helpers::{
-    TEST_AUTH_USER_ID, TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_token,
-    request, request_with_auth, request_with_auth_body, request_with_auth_raw,
+    TEST_AUTH_USER_ID, TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body,
+    login_and_get_session_cookie, request, request_with_session, request_with_session_body,
+    request_with_session_raw,
 };
 
 async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
@@ -32,8 +33,9 @@ async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
         modified_by: uuid::Uuid::nil(),
     };
 
-    let token = login_and_get_token().await;
-    let response = request_with_auth_body(Method::POST, "/article", &token, &payload).await;
+    let session_cookie = login_and_get_session_cookie().await;
+    let response =
+        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
     let (parts, body) = response.into_parts();
     let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
@@ -127,13 +129,13 @@ async fn create_article_with_pictures(
     photos: &[(&str, &str, &[u8])],
     new_picture_meta: Option<serde_json::Value>,
 ) -> CreateArticleWithPicturesResponseDto {
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
     let (boundary, payload) = build_multipart_article_request_with_photos(photos, new_picture_meta);
 
-    let response = request_with_auth_raw(
+    let response = request_with_session_raw(
         Method::POST,
         "/article/upload",
-        &token,
+        &session_cookie,
         &format!("multipart/form-data; boundary={boundary}"),
         payload,
     )
@@ -183,11 +185,11 @@ async fn test_create_article() {
 async fn test_get_article_by_id() {
     let (_, created_article) = create_article().await.expect("Failed to create article");
 
-    let token = login_and_get_token().await;
-    let response = request_with_auth(
+    let session_cookie = login_and_get_session_cookie().await;
+    let response = request_with_session(
         Method::GET,
         &format!("/article/{}", created_article.article_id),
-        &token,
+        &session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -229,9 +231,9 @@ async fn test_get_articles_contains_created_article() {
 
 #[tokio::test]
 async fn test_get_article_form_options() {
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
 
-    let response = request_with_auth(Method::GET, "/article/categories", &token).await;
+    let response = request_with_session(Method::GET, "/article/categories", &session_cookie).await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
     let response_body: RestApiResponse<
@@ -245,7 +247,7 @@ async fn test_get_article_form_options() {
     );
     assert!(categories.iter().any(|item| item.name == "Test Category"));
 
-    let response = request_with_auth(Method::GET, "/article/towns", &token).await;
+    let response = request_with_session(Method::GET, "/article/towns", &session_cookie).await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
     let response_body: RestApiResponse<
@@ -323,7 +325,7 @@ async fn test_create_article_with_picture_and_fetch_file() {
 
 #[tokio::test]
 async fn test_update_article_with_picture_changes() {
-    let token = login_and_get_token().await;
+    let session_cookie = login_and_get_session_cookie().await;
     let created = create_article_with_pictures(
         &[
             ("titelbild.png", "image/png", b"first-image-data"),
@@ -390,10 +392,10 @@ async fn test_update_article_with_picture_changes() {
     );
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
-    let response = request_with_auth_raw(
+    let response = request_with_session_raw(
         Method::PUT,
         &format!("/article/{}/upload", created.article.article_id),
-        &token,
+        &session_cookie,
         &format!("multipart/form-data; boundary={boundary}"),
         body,
     )
@@ -448,7 +450,12 @@ async fn test_update_article_with_picture_changes() {
         "deleted file should not be present anymore"
     );
 
-    let response = request_with_auth(Method::GET, &format!("/file/{}", new_file.id), &token).await;
+    let response = request_with_session(
+        Method::GET,
+        &format!("/file/{}", new_file.id),
+        &session_cookie,
+    )
+    .await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
     assert_eq!(parts.headers.get("content-type").unwrap(), "image/webp");

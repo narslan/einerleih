@@ -5,7 +5,7 @@ use axum::{
     body::Body,
     http::{
         Method, Request, Response,
-        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+        header::{ACCEPT, CONTENT_TYPE, COOKIE, SET_COOKIE},
     },
 };
 use http_body_util::BodyExt;
@@ -13,13 +13,8 @@ use http_body_util::BodyExt;
 use deadpool_postgres::{Pool, Runtime};
 use einerleih::{
     app::create_router,
-    common::{
-        bootstrap::build_app_state,
-        config::Config,
-        dto::RestApiResponse,
-        hash_utils,
-        jwt::{AuthBody, AuthPayload},
-    },
+    common::{bootstrap::build_app_state, config::Config, hash_utils},
+    domains::auth::dto::auth_dto::{AuthPayload, AuthSessionDto},
 };
 
 use dotenvy::from_filename;
@@ -136,43 +131,47 @@ pub async fn request_with_body<T: serde::Serialize>(
 }
 
 #[allow(dead_code)]
-pub async fn request_with_auth_body<T: serde::Serialize>(
+pub async fn request_with_session_body<T: serde::Serialize>(
     method: Method,
     uri: &str,
-    token: &str,
+    session_cookie: &str,
     payload: &T,
 ) -> Response<Body> {
     let json_payload = serde_json::to_string(payload).expect("Failed to serialize payload");
-    let request = get_request_with_auth_body(method, uri, token, &json_payload);
+    let request = get_request_with_session_body(method, uri, session_cookie, &json_payload);
     let app = create_test_router().await;
 
     app.oneshot(request.await).await.unwrap()
 }
 
 #[allow(dead_code)]
-pub async fn request_with_auth(method: Method, uri: &str, token: &str) -> Response<Body> {
-    let request = get_request_with_auth(method, uri, token);
-    let app = create_test_router().await;
-
-    app.oneshot(request.await).await.unwrap()
-}
-
-#[allow(dead_code)]
-pub async fn request_with_auth_raw(
+pub async fn request_with_session(
     method: Method,
     uri: &str,
-    token: &str,
+    session_cookie: &str,
+) -> Response<Body> {
+    let request = get_request_with_session(method, uri, session_cookie);
+    let app = create_test_router().await;
+
+    app.oneshot(request.await).await.unwrap()
+}
+
+#[allow(dead_code)]
+pub async fn request_with_session_raw(
+    method: Method,
+    uri: &str,
+    session_cookie: &str,
     content_type: &str,
     payload: Vec<u8>,
 ) -> Response<Body> {
-    let request = get_request_with_auth_raw(method, uri, token, content_type, payload);
+    let request = get_request_with_session_raw(method, uri, session_cookie, content_type, payload);
     let app = create_test_router().await;
 
     app.oneshot(request.await).await.unwrap()
 }
 
 #[allow(dead_code)]
-pub async fn login_and_get_token() -> String {
+pub async fn login_and_get_session_cookie() -> String {
     let payload = AuthPayload {
         client_id: TEST_CLIENT_ID.to_string(),
         client_secret: TEST_CLIENT_SECRET.to_string(),
@@ -182,8 +181,39 @@ pub async fn login_and_get_token() -> String {
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, axum::http::StatusCode::OK);
 
-    let response_body: RestApiResponse<AuthBody> = deserialize_json_body(body).await.unwrap();
-    response_body.0.data.unwrap().access_token
+    let _response_body: einerleih::common::dto::RestApiResponse<AuthSessionDto> =
+        deserialize_json_body(body).await.unwrap();
+    parts
+        .headers
+        .get(SET_COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .expect("login response should set a session cookie")
+        .to_string()
+}
+
+#[allow(dead_code)]
+pub async fn signup_and_get_session_cookie() -> String {
+    let unique = Uuid::new_v4().simple().to_string();
+    let payload = serde_json::json!({
+        "username": format!("user-{unique}"),
+        "email": format!("user-{unique}@example.com"),
+        "password": TEST_CLIENT_SECRET
+    });
+
+    let response = request_with_body(Method::POST, "/auth/signup", &payload).await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, axum::http::StatusCode::OK);
+
+    let _response_body: einerleih::common::dto::RestApiResponse<AuthSessionDto> =
+        deserialize_json_body(body).await.unwrap();
+    parts
+        .headers
+        .get(SET_COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .expect("signup response should set a session cookie")
+        .to_string()
 }
 
 /// internal helper functions to create requests
@@ -210,10 +240,10 @@ async fn get_request_with_body(method: Method, uri: &str, payload: &str) -> Requ
     request
 }
 
-async fn get_request_with_auth_body(
+async fn get_request_with_session_body(
     method: Method,
     uri: &str,
-    token: &str,
+    session_cookie: &str,
     payload: &str,
 ) -> Request<Body> {
     Request::builder()
@@ -221,26 +251,30 @@ async fn get_request_with_auth_body(
         .uri(uri.to_string())
         .header(CONTENT_TYPE, "application/json")
         .header(ACCEPT, "application/json")
-        .header(AUTHORIZATION, format!("Bearer {}", token))
+        .header(COOKIE, session_cookie)
         .body(axum::body::Body::from(payload.to_string()))
         .unwrap()
 }
 
-async fn get_request_with_auth(method: Method, uri: &str, token: &str) -> Request<Body> {
+async fn get_request_with_session(
+    method: Method,
+    uri: &str,
+    session_cookie: &str,
+) -> Request<Body> {
     Request::builder()
         .method(method)
         .uri(uri.to_string())
         .header(CONTENT_TYPE, "application/json")
         .header(ACCEPT, "application/json")
-        .header(AUTHORIZATION, format!("Bearer {}", token))
+        .header(COOKIE, session_cookie)
         .body(axum::body::Body::empty())
         .unwrap()
 }
 
-async fn get_request_with_auth_raw(
+async fn get_request_with_session_raw(
     method: Method,
     uri: &str,
-    token: &str,
+    session_cookie: &str,
     content_type: &str,
     payload: Vec<u8>,
 ) -> Request<Body> {
@@ -249,7 +283,7 @@ async fn get_request_with_auth_raw(
         .uri(uri.to_string())
         .header(CONTENT_TYPE, content_type)
         .header(ACCEPT, "application/json")
-        .header(AUTHORIZATION, format!("Bearer {}", token))
+        .header(COOKIE, session_cookie)
         .body(axum::body::Body::from(payload))
         .unwrap()
 }
@@ -301,6 +335,19 @@ async fn ensure_test_fixtures(pool: &Pool) -> TestResult<()> {
     client
         .execute(&auth_stmt, &[&auth_user_id, &password_hash])
         .await?;
+
+    let role_stmt = client
+        .prepare_cached(
+            r#"
+            INSERT INTO user_roles (user_id, role_id)
+            SELECT $1, role_id
+            FROM roles
+            WHERE name = 'admin'
+            ON CONFLICT (user_id, role_id) DO NOTHING
+            "#,
+        )
+        .await?;
+    client.execute(&role_stmt, &[&auth_user_id]).await?;
 
     let town_stmt = client
         .prepare_cached(

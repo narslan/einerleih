@@ -16,6 +16,24 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate-reset:
+    image: ${IMAGE_REF:-ghcr.io/narslan/einerleih:latest}
+    container_name: einerleih_migrate_reset
+    profiles: ["db-reset"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LISTEN: 0.0.0.0:8000
+      PG__URL: postgres://einerleih:${POSTGRES_PASSWORD}@postgres:5432/einerleih
+      ASSETS_PUBLIC_PATH: /app/static
+      ASSETS_PUBLIC_URL: /static
+      ASSETS_PRIVATE_PATH: /app/assets/private
+      ASSETS_PRIVATE_URL: /file
+      ASSET_MAX_SIZE: 5242880
+    command: ["/app/einerleih", "migrate", "reset"]
+
   backend:
     image: ${IMAGE_REF:-ghcr.io/narslan/einerleih:latest}
     container_name: einerleih_backend
@@ -26,12 +44,14 @@ services:
     environment:
       LISTEN: 0.0.0.0:8000
       PG__URL: postgres://einerleih:${POSTGRES_PASSWORD}@postgres:5432/einerleih
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       ASSETS_PUBLIC_PATH: /app/static
       ASSETS_PUBLIC_URL: /static
       ASSETS_PRIVATE_PATH: /app/assets/private
       ASSETS_PRIVATE_URL: /file
       ASSET_MAX_SIZE: 5242880
+      BOOTSTRAP_ADMIN_USERNAME: ${BOOTSTRAP_ADMIN_USERNAME:-}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:8000:8000"
     volumes:

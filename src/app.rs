@@ -3,16 +3,15 @@ use axum::{
     body::{Body, Bytes},
     error_handling::HandleErrorLayer,
     extract::Request,
-    http::{
-        Method, StatusCode,
-        header::{AUTHORIZATION, CONTENT_TYPE},
-    },
+    http::{Method, StatusCode, header::CONTENT_TYPE},
     middleware::{self, Next},
     response::Response,
 };
+use axum_login::AuthManagerLayerBuilder;
 use http_body_util::BodyExt;
+use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-use std::time::Duration;
+use std::{sync::LazyLock, time::Duration};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{Any, CorsLayer},
@@ -21,11 +20,11 @@ use tower_http::{
 };
 
 use crate::{
-    common::{app_state::AppState, error::handle_error, jwt},
+    common::{app_state::AppState, error::handle_error, session_auth},
     domains::{
         article::{ArticleApiDoc, protected_article_routes, public_article_routes},
         auth::{UserAuthApiDoc, user_auth_routes},
-        booking::{BookingApiDoc, protected_booking_routes},
+        booking::{BookingApiDoc, admin_booking_routes, user_booking_routes},
         calendar::{CalendarApiDoc, protected_calendar_routes},
         file::{FileApiDoc, protected_file_routes, public_file_routes},
         user::{UserApiDoc, user_routes},
@@ -44,6 +43,8 @@ use utoipa_swagger_ui::SwaggerUi;
 pub static FORBIDDEN_PATTERNS: Lazy<Vec<Regex>> =
     Lazy::new(|| vec![Regex::new(r"(?i)<\s*script\b[^>]*>").unwrap()]);
 
+static SESSION_STORE: LazyLock<MemoryStore> = LazyLock::new(MemoryStore::default);
+
 fn create_swagger_ui() -> SwaggerUi {
     SwaggerUi::new("/docs")
         .url(
@@ -58,11 +59,17 @@ fn create_swagger_ui() -> SwaggerUi {
 }
 
 pub fn create_router(state: AppState) -> Router {
+    let session_layer = SessionManagerLayer::new(SESSION_STORE.clone())
+        .with_name(state.config.session_cookie_name.clone())
+        .with_secure(state.config.session_cookie_secure);
+    let auth_backend = session_auth::AuthBackend::new(state.pool.clone());
+    let auth_layer = AuthManagerLayerBuilder::new(auth_backend, session_layer).build();
+
     // Build a CORS layer that applies to everyone
     let cors = CorsLayer::new()
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_origin(Any)
-        .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
+        .allow_headers([CONTENT_TYPE]);
 
     // Create a common middleware stack for error handling, timeouts, and CORS.
     let middleware_stack = ServiceBuilder::new()
@@ -70,24 +77,28 @@ pub fn create_router(state: AppState) -> Router {
         .timeout(Duration::from_secs(1800))
         .layer(cors);
 
-    // /auth routes (login, register, refresh, etc.) — no logging here
+    // /auth routes (login, register, logout) — no logging here
     let auth_router = Router::new()
         .nest("/auth", user_auth_routes())
         .layer(middleware::from_fn(make_request_response_inspecter(false)));
 
-    // Protected API routes
-    let protected_routes = Router::new()
+    // Routes for regular authenticated users.
+    let session_routes = Router::new()
+        .nest("/article", user_booking_routes())
+        .route_layer(middleware::from_fn(session_auth::require_session))
+        .layer(middleware::from_fn(make_request_response_inspecter(true)));
+
+    // Admin routes for managing articles, calendars, bookings, files and users.
+    let admin_routes = Router::new()
         .nest("/user", user_routes())
         .nest(
             "/article",
             protected_article_routes()
                 .merge(protected_calendar_routes())
-                .merge(protected_booking_routes()),
+                .merge(admin_booking_routes()),
         )
         .nest("/file", protected_file_routes())
-        // enforce JWT authentication
-        .route_layer(middleware::from_fn(jwt::jwt_auth))
-        // attach inspecter
+        .route_layer(middleware::from_fn(session_auth::require_admin))
         .layer(middleware::from_fn(make_request_response_inspecter(true)));
 
     let public_article_routes = Router::new()
@@ -119,7 +130,8 @@ pub fn create_router(state: AppState) -> Router {
         .merge(auth_router)
         .merge(public_article_routes)
         .merge(public_file_routes)
-        .merge(protected_routes)
+        .merge(session_routes)
+        .merge(admin_routes)
         .merge(create_swagger_ui())
         .fallback_service(static_files)
         .layer(
@@ -144,6 +156,7 @@ pub fn create_router(state: AppState) -> Router {
                 ),
         )
         .layer(middleware_stack)
+        .layer(auth_layer)
         .with_state(state)
 }
 

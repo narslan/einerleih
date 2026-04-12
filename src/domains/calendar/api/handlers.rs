@@ -7,7 +7,9 @@ use uuid::Uuid;
 use validator::Validate;
 
 use crate::{
-    common::{app_state::AppState, dto::RestApiResponse, error::AppError, jwt::Claims},
+    common::{
+        app_state::AppState, auth_context::AuthenticatedUser, dto::RestApiResponse, error::AppError,
+    },
     domains::calendar::dto::calendar_dto::{
         CalendarEntryDto, CalendarEntryFilterDto, CreateCalendarEntryDto, UpdateCalendarEntryDto,
     },
@@ -66,7 +68,7 @@ pub async fn get_calendar_entry(
 )]
 pub async fn create_calendar_entry(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path(article_id): Path<Uuid>,
     Json(payload): Json<CreateCalendarEntryDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -75,8 +77,8 @@ pub async fn create_calendar_entry(
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
 
     let mut payload = payload;
-    payload.created_by = claims.sub;
-    payload.modified_by = claims.sub;
+    payload.created_by = auth.id;
+    payload.modified_by = auth.id;
 
     let entry = state
         .calendar_service
@@ -98,7 +100,7 @@ pub async fn create_calendar_entry(
 )]
 pub async fn update_calendar_entry(
     State(state): State<AppState>,
-    Extension(claims): Extension<Claims>,
+    Extension(auth): Extension<AuthenticatedUser>,
     Path((article_id, event_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<UpdateCalendarEntryDto>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -107,7 +109,7 @@ pub async fn update_calendar_entry(
         .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
 
     let mut payload = payload;
-    payload.modified_by = claims.sub;
+    payload.modified_by = auth.id;
 
     let entry = state
         .calendar_service

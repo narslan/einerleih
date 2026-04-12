@@ -5,11 +5,8 @@ use deadpool_postgres::Pool;
 use std::sync::Arc;
 
 use crate::{
-    common::{
-        error::AppError,
-        jwt::{AuthBody, AuthPayload},
-    },
-    domains::auth::dto::auth_dto::AuthUserDto,
+    common::error::AppError,
+    domains::auth::dto::auth_dto::{AuthPayload, AuthUserDto},
 };
 
 #[async_trait::async_trait]
@@ -24,6 +21,6 @@ pub trait AuthServiceTrait: Send + Sync {
     /// Registers a new user authentication entry.
     async fn create_user_auth(&self, auth_user: AuthUserDto) -> Result<(), AppError>;
 
-    /// Authenticates a user and returns a JWT token payload on success.
-    async fn login_user(&self, auth_payload: AuthPayload) -> Result<AuthBody, AppError>;
+    /// Authenticates a user and returns the authenticated user id on success.
+    async fn login_user(&self, auth_payload: AuthPayload) -> Result<uuid::Uuid, AppError>;
 }

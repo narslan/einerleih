@@ -10,15 +10,15 @@ use utoipa::OpenApi;
 #[openapi(
     paths(
         super::handlers::login_user,
+        super::handlers::logout_user,
         super::handlers::sign_up_user,
         super::handlers::create_user_auth,
     ),
     components(schemas(
         crate::domains::auth::dto::auth_dto::AuthUserDto,
+        crate::domains::auth::dto::auth_dto::AuthPayload,
         crate::domains::auth::dto::auth_dto::SignUpDto,
         crate::domains::auth::dto::auth_dto::AuthSessionDto,
-        crate::common::jwt::AuthPayload,
-        crate::common::jwt::AuthBody,
     )),
     tags(
         (name = "UserAuth", description = "User authentication endpoints")
@@ -32,6 +32,7 @@ pub struct UserAuthApiDoc;
 pub fn user_auth_routes() -> Router<AppState> {
     Router::new()
         .route("/login", post(handlers::login_user))
+        .route("/logout", post(handlers::logout_user))
         .route("/signup", post(handlers::sign_up_user))
         .route("/register", post(handlers::create_user_auth))
 }

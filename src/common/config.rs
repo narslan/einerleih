@@ -16,6 +16,15 @@ pub struct Config {
     //TODO: pass dieses Feld an
     //pub asset_allowed_extensions_pattern: Regex,
     pub asset_max_size: usize,
+
+    #[serde(default = "default_session_cookie_name")]
+    pub session_cookie_name: String,
+    #[serde(default)]
+    pub session_cookie_secure: bool,
+
+    pub bootstrap_admin_username: Option<String>,
+    pub bootstrap_admin_email: Option<String>,
+    pub bootstrap_admin_password: Option<String>,
 }
 
 impl Config {
@@ -26,6 +35,10 @@ impl Config {
             .build()?
             .try_deserialize()
     }
+}
+
+fn default_session_cookie_name() -> String {
+    "einerleih_session".to_string()
 }
 
 pub async fn setup_database(config: &Config) -> Result<Pool, CreatePoolError> {
