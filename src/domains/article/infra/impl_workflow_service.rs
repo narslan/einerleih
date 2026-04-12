@@ -4,9 +4,7 @@ use crate::{
     common::error::AppError,
     domains::{
         article::{
-            domain::{
-                repository::ArticleRepository, workflow::ArticleWorkflowServiceTrait,
-            },
+            domain::{repository::ArticleRepository, workflow::ArticleWorkflowServiceTrait},
             dto::article_dto::{
                 ArticleDto, CreateArticleDto, CreateArticleWithPicturesResponseDto,
                 ExistingArticlePictureDto, NewArticlePictureDto, UpdateArticleDtoWithIdDto,
@@ -179,7 +177,8 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
             })?;
 
         let delete_file_ids_set: HashSet<Uuid> = delete_file_ids.iter().copied().collect();
-        let article_file_ids_set: HashSet<Uuid> = existing_files.iter().map(|file| file.id).collect();
+        let article_file_ids_set: HashSet<Uuid> =
+            existing_files.iter().map(|file| file.id).collect();
 
         if new_pictures.len() != new_picture_meta.len() {
             return Err(AppError::ValidationError(
@@ -323,11 +322,11 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
             })?;
 
         Ok(UpdateArticleWithPicturesResponseDto {
-            article: ArticleDto::from_article_with_pictures(
-                updated_article,
-                updated_files.clone(),
-            ),
-            uploaded_files: updated_files.into_iter().map(UploadedFileDto::from).collect(),
+            article: ArticleDto::from_article_with_pictures(updated_article, updated_files.clone()),
+            uploaded_files: updated_files
+                .into_iter()
+                .map(UploadedFileDto::from)
+                .collect(),
         })
     }
 }

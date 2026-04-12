@@ -1,6 +1,9 @@
 use crate::{
     common::{
-        app_state::AppState, dto::RestApiResponse, error::AppError, jwt::Claims,
+        app_state::AppState,
+        dto::RestApiResponse,
+        error::AppError,
+        jwt::Claims,
         multipart_helper::{parse_multipart_to_maps, parse_multipart_to_multi_maps},
     },
     domains::article::{
@@ -14,7 +17,11 @@ use crate::{
     domains::file::FileDto,
 };
 
-use axum::{Extension, Json, extract::{Multipart, State}, response::IntoResponse};
+use axum::{
+    Extension, Json,
+    extract::{Multipart, State},
+    response::IntoResponse,
+};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::de::DeserializeOwned;
@@ -129,8 +136,7 @@ pub async fn create_article_with_pictures(
     let (fields, files): (
         std::collections::HashMap<String, String>,
         std::collections::HashMap<String, Vec<FileDto>>,
-    ) =
-        parse_multipart_to_maps(multipart, &ARTICLE_PICTURE_ALLOWED_EXTENSIONS).await?;
+    ) = parse_multipart_to_maps(multipart, &ARTICLE_PICTURE_ALLOWED_EXTENSIONS).await?;
 
     let create_article = CreateArticleDto {
         name: required_field(&fields, "name")?,
@@ -287,9 +293,9 @@ fn parse_optional_json_field<T: DeserializeOwned>(
         return Ok(None);
     }
 
-    serde_json::from_str(value).map(Some).map_err(|err| {
-        AppError::ValidationError(format!("Invalid JSON for field {key}: {err}"))
-    })
+    serde_json::from_str(value)
+        .map(Some)
+        .map_err(|err| AppError::ValidationError(format!("Invalid JSON for field {key}: {err}")))
 }
 
 fn required_multi_field(
@@ -325,7 +331,7 @@ fn parse_optional_json_multi_field<T: DeserializeOwned>(
         return Ok(None);
     }
 
-    serde_json::from_str(value).map(Some).map_err(|err| {
-        AppError::ValidationError(format!("Invalid JSON for field {key}: {err}"))
-    })
+    serde_json::from_str(value)
+        .map(Some)
+        .map_err(|err| AppError::ValidationError(format!("Invalid JSON for field {key}: {err}")))
 }

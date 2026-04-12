@@ -5,8 +5,7 @@ use crate::{
     domains::{
         article::dto::article_dto::{
             CreateArticleDto, CreateArticleWithPicturesResponseDto, ExistingArticlePictureDto,
-            NewArticlePictureDto, UpdateArticleDtoWithIdDto,
-            UpdateArticleWithPicturesResponseDto,
+            NewArticlePictureDto, UpdateArticleDtoWithIdDto, UpdateArticleWithPicturesResponseDto,
         },
         file::dto::file_dto::FileDto,
     },

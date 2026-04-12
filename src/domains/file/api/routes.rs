@@ -1,13 +1,13 @@
 use super::handlers::*;
 use crate::{common::app_state::AppState, domains::file::dto::file_dto::UploadedFileDto};
 use axum::{
-    routing::{delete, get},
     Router,
+    routing::{delete, get},
 };
 
 use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     OpenApi,
+    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
 #[derive(OpenApi)]
@@ -49,6 +49,5 @@ pub fn public_file_routes() -> Router<AppState> {
 }
 
 pub fn protected_file_routes() -> Router<AppState> {
-    Router::new()
-        .route("/{file_id}", delete(delete_file))
+    Router::new().route("/{file_id}", delete(delete_file))
 }

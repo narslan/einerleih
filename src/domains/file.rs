@@ -19,7 +19,7 @@ mod infra {
 }
 
 // Re-export commonly used items for convenience
-pub use api::routes::{protected_file_routes, public_file_routes, FileApiDoc};
+pub use api::routes::{FileApiDoc, protected_file_routes, public_file_routes};
 pub use domain::model::UploadedFile;
 pub use domain::repository::FileRepository;
 pub use domain::service::FileServiceTrait;

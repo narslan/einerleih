@@ -58,7 +58,7 @@ impl ArticleServiceTrait for ArticleService {
         }
     }
 
- /*   /// Retrieves article list by condition
+    /*   /// Retrieves article list by condition
     /// Returns a vector of ArticleDto objects.
     async fn get_articles(
         &self,
@@ -118,7 +118,10 @@ impl ArticleServiceTrait for ArticleService {
     }
 
     /// Creates a new article.
-    async fn create_article(&self, create_article: CreateArticleDto) -> Result<ArticleDto, AppError> {
+    async fn create_article(
+        &self,
+        create_article: CreateArticleDto,
+    ) -> Result<ArticleDto, AppError> {
         let mut client = self.pool.get().await.unwrap();
         let mut tx = client.transaction().await.unwrap();
         let id = Uuid::new_v4();
@@ -134,7 +137,10 @@ impl ArticleServiceTrait for ArticleService {
                     .source()
                     .map(|source| source.to_string())
                     .unwrap_or_else(|| "unknown source".to_string());
-                tracing::error!("Error creating article: {err}; source: {source}; debug: {:?}", err);
+                tracing::error!(
+                    "Error creating article: {err}; source: {source}; debug: {:?}",
+                    err
+                );
                 let _ = tx.rollback().await;
                 return Err(AppError::DatabaseError(err));
             }
@@ -158,7 +164,11 @@ impl ArticleServiceTrait for ArticleService {
     }
 
     /// Updates an existing article.
-    async fn update_article(&self, id: Uuid, payload: UpdateArticleDtoWithIdDto) -> Result<ArticleDto, AppError> {
+    async fn update_article(
+        &self,
+        id: Uuid,
+        payload: UpdateArticleDtoWithIdDto,
+    ) -> Result<ArticleDto, AppError> {
         let mut client = self.pool.get().await.unwrap();
         let mut tx = client.transaction().await.unwrap();
 
@@ -184,7 +194,10 @@ impl ArticleServiceTrait for ArticleService {
                     .source()
                     .map(|source| source.to_string())
                     .unwrap_or_else(|| "unknown source".to_string());
-                tracing::error!("Error updating article: {err}; source: {source}; debug: {:?}", err);
+                tracing::error!(
+                    "Error updating article: {err}; source: {source}; debug: {:?}",
+                    err
+                );
                 let _ = tx.rollback().await;
                 Err(AppError::DatabaseError(err))
             }
@@ -213,7 +226,10 @@ impl ArticleServiceTrait for ArticleService {
                     .source()
                     .map(|source| source.to_string())
                     .unwrap_or_else(|| "unknown source".to_string());
-                tracing::error!("Error deleting article: {err}; source: {source}; debug: {:?}", err);
+                tracing::error!(
+                    "Error deleting article: {err}; source: {source}; debug: {:?}",
+                    err
+                );
                 let _ = tx.rollback().await;
                 Err(AppError::DatabaseError(err))
             }

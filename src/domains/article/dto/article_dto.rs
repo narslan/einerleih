@@ -40,7 +40,6 @@ pub struct ArticleDto {
     pub modified_at: Option<DateTime<Utc>>,
 }
 
-
 #[derive(PartialEq, Debug, Deserialize, serde::Serialize, ToSchema, Validate)]
 pub struct CreateArticleDto {
     #[validate(length(max = 36, message = "Name cannot exceed 36 characters"))]
@@ -121,7 +120,10 @@ impl ArticleDto {
         let mut picture_dtos: Vec<ArticleImageDto> =
             pictures.into_iter().map(ArticleImageDto::from).collect();
         picture_dtos.sort_by_key(|picture| (picture.sort_order, !picture.is_cover));
-        let cover_image = picture_dtos.iter().find(|picture| picture.is_cover).cloned();
+        let cover_image = picture_dtos
+            .iter()
+            .find(|picture| picture.is_cover)
+            .cloned();
 
         Self {
             article_id: article.article_id,

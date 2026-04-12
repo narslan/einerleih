@@ -159,8 +159,28 @@ pub async fn drop_schema(pool: &Pool) -> MigrationResult<()> {
 }
 
 pub async fn reset_schema(pool: &Pool) -> MigrationResult<()> {
-    drop_schema(pool).await?;
+    drop_application_tables(pool).await?;
     apply_schema(pool).await?;
+    Ok(())
+}
+
+async fn drop_application_tables(pool: &Pool) -> MigrationResult<()> {
+    let client = pool.get().await?;
+    client
+        .batch_execute(
+            "
+            DROP TABLE IF EXISTS uploaded_files;
+            DROP TABLE IF EXISTS booking;
+            DROP TABLE IF EXISTS event_calendar;
+            DROP TABLE IF EXISTS user_auth;
+            DROP TABLE IF EXISTS article;
+            DROP TABLE IF EXISTS categories;
+            DROP TABLE IF EXISTS towns;
+            DROP TABLE IF EXISTS users;
+            DROP TABLE IF EXISTS schema_migrations;
+            ",
+        )
+        .await?;
     Ok(())
 }
 

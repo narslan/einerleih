@@ -45,9 +45,5 @@ pub trait FileRepository: Send + Sync {
     ) -> Result<Option<UploadedFile>, PoolError>;
 
     /// Deletes a file record by its unique identifier using a transaction.
-    async fn delete(
-        &self,
-        tx: &mut Transaction<'_>,
-        id: uuid::Uuid,
-    ) -> Result<bool, PoolError>;
+    async fn delete(&self, tx: &mut Transaction<'_>, id: uuid::Uuid) -> Result<bool, PoolError>;
 }

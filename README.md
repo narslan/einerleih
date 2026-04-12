@@ -33,6 +33,7 @@ cargo run -- migrate down
 cargo run -- migrate reset
 cargo run -- migrate status
 cargo run -- seed
+RUST_LOG=info,tokio_postgres=debug,tower_http=debug cargo run
 ```
 
 Der normale Serverstart führt `migrate up` automatisch aus, bevor der HTTP-Server startet.

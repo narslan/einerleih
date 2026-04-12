@@ -63,7 +63,7 @@ CREATE INDEX idx_uploaded_files_article_id ON uploaded_files(article_id);
 
 CREATE TABLE event_calendar (
     event_id UUID PRIMARY KEY,
-    article_id UUID NOT NULL REFERENCES article(article_id),
+    article_id UUID NOT NULL REFERENCES article(article_id) ON DELETE CASCADE,
     entry_type VARCHAR(16) NOT NULL
         CHECK (entry_type IN ('availability', 'block')),
     block_reason VARCHAR(16)
@@ -99,7 +99,7 @@ CREATE INDEX idx_event_calendar_article_end_time
 
 CREATE TABLE booking (
     booking_id UUID PRIMARY KEY,
-    article_id UUID NOT NULL REFERENCES article(article_id),
+    article_id UUID NOT NULL REFERENCES article(article_id) ON DELETE CASCADE,
     requested_by UUID REFERENCES users(id),
     requester_name VARCHAR(128),
     requester_email VARCHAR(128),

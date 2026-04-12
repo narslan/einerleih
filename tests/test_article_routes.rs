@@ -215,7 +215,8 @@ async fn test_get_articles_contains_created_article() {
 
     assert_eq!(parts.status, StatusCode::OK);
 
-    let response_body: RestApiResponse<Vec<ArticleDto>> = deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<Vec<ArticleDto>> =
+        deserialize_json_body(body).await.unwrap();
     let articles = response_body.0.data.unwrap();
 
     assert!(
@@ -233,17 +234,23 @@ async fn test_get_article_form_options() {
     let response = request_with_auth(Method::GET, "/article/categories", &token).await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
-    let response_body: RestApiResponse<Vec<einerleih::domains::article::dto::article_dto::ArticleRelationDto>> =
-        deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<
+        Vec<einerleih::domains::article::dto::article_dto::ArticleRelationDto>,
+    > = deserialize_json_body(body).await.unwrap();
     let categories = response_body.0.data.unwrap();
-    assert!(categories.iter().any(|item| item.id.to_string() == TEST_CATEGORY_ID));
+    assert!(
+        categories
+            .iter()
+            .any(|item| item.id.to_string() == TEST_CATEGORY_ID)
+    );
     assert!(categories.iter().any(|item| item.name == "Test Category"));
 
     let response = request_with_auth(Method::GET, "/article/towns", &token).await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
-    let response_body: RestApiResponse<Vec<einerleih::domains::article::dto::article_dto::ArticleRelationDto>> =
-        deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<
+        Vec<einerleih::domains::article::dto::article_dto::ArticleRelationDto>,
+    > = deserialize_json_body(body).await.unwrap();
     let towns = response_body.0.data.unwrap();
     assert!(towns.iter().any(|item| item.id.to_string() == TEST_TOWN_ID));
     assert!(towns.iter().any(|item| item.name == "Test Town"));
@@ -253,7 +260,11 @@ async fn test_get_article_form_options() {
 async fn test_get_article_by_id_public() {
     let (_, created_article) = create_article().await.expect("Failed to create article");
 
-    let response = request(Method::GET, &format!("/article/{}", created_article.article_id)).await;
+    let response = request(
+        Method::GET,
+        &format!("/article/{}", created_article.article_id),
+    )
+    .await;
     let (parts, body) = response.into_parts();
 
     assert_eq!(parts.status, StatusCode::OK);
@@ -279,12 +290,18 @@ async fn test_create_article_with_picture_and_fetch_file() {
     assert_eq!(uploaded_file.sort_order, 0);
     assert!(uploaded_file.is_cover);
     assert_eq!(uploaded_file.content_type, "image/png");
-    assert_eq!(uploaded_file.file_url, format!("/file/{}", uploaded_file.id));
+    assert_eq!(
+        uploaded_file.file_url,
+        format!("/file/{}", uploaded_file.id)
+    );
     assert_eq!(
         created.article.cover_image.as_ref().unwrap().file_url,
         format!("/file/{}", uploaded_file.id)
     );
-    assert_eq!(created.article.cover_image.as_ref().unwrap().id, uploaded_file.id);
+    assert_eq!(
+        created.article.cover_image.as_ref().unwrap().id,
+        uploaded_file.id
+    );
     assert_eq!(created.article.pictures[0].id, uploaded_file.id);
     assert_eq!(
         created.article.pictures[0].file_url,
@@ -294,10 +311,7 @@ async fn test_create_article_with_picture_and_fetch_file() {
     let response = request(Method::GET, &format!("/file/{}", uploaded_file.id)).await;
     let (parts, body) = response.into_parts();
     assert_eq!(parts.status, StatusCode::OK);
-    assert_eq!(
-        parts.headers.get("content-type").unwrap(),
-        "image/png"
-    );
+    assert_eq!(parts.headers.get("content-type").unwrap(), "image/png");
 
     let bytes = body.collect().await.unwrap().to_bytes();
     assert_eq!(&bytes[..], b"fake-image-data");
@@ -310,10 +324,13 @@ async fn test_create_article_with_picture_and_fetch_file() {
 #[tokio::test]
 async fn test_update_article_with_picture_changes() {
     let token = login_and_get_token().await;
-    let created = create_article_with_pictures(&[
-        ("titelbild.png", "image/png", b"first-image-data"),
-        ("detailbild.jpg", "image/jpeg", b"second-image-data"),
-    ], None)
+    let created = create_article_with_pictures(
+        &[
+            ("titelbild.png", "image/png", b"first-image-data"),
+            ("detailbild.jpg", "image/jpeg", b"second-image-data"),
+        ],
+        None,
+    )
     .await;
     let deleted_file = created.uploaded_files[0].clone();
     let original_file = created.uploaded_files[1].clone();
@@ -418,7 +435,10 @@ async fn test_update_article_with_picture_changes() {
     assert_eq!(new_file.sort_order, 0);
     assert!(new_file.is_cover);
     assert_eq!(new_file.content_type, "image/webp");
-    assert_eq!(updated.article.cover_image.as_ref().unwrap().id, new_file.id);
+    assert_eq!(
+        updated.article.cover_image.as_ref().unwrap().id,
+        new_file.id
+    );
     assert!(
         updated
             .article

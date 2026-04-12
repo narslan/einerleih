@@ -148,24 +148,24 @@ impl FileRepository for FileRepo {
         let stmt = tx.prepare_cached(CREATE_FILE_QUERY).await?;
         let row = tx
             .query_one(
-            &stmt,
-            &[
-                &file.id,
-                &file.file_name,
-                &file.origin_file_name,
-                &file.file_relative_path,
-                &file.file_url,
-                &file.content_type,
-                &file.file_size,
-                &file.file_type.as_str(),
-                &file.article_id,
-                &file.sort_order,
-                &file.is_cover,
-                &file.modified_by,
-                &file.modified_by,
-            ],
-        )
-        .await?;
+                &stmt,
+                &[
+                    &file.id,
+                    &file.file_name,
+                    &file.origin_file_name,
+                    &file.file_relative_path,
+                    &file.file_url,
+                    &file.content_type,
+                    &file.file_size,
+                    &file.file_type.as_str(),
+                    &file.article_id,
+                    &file.sort_order,
+                    &file.is_cover,
+                    &file.modified_by,
+                    &file.modified_by,
+                ],
+            )
+            .await?;
 
         Ok(map_uploaded_file_row(&row))
     }
@@ -187,7 +187,9 @@ impl FileRepository for FileRepo {
         article_id: uuid::Uuid,
     ) -> Result<Vec<UploadedFile>, PoolError> {
         let client = pool.get().await?;
-        let stmt = client.prepare_cached(FIND_FILES_BY_ARTICLE_ID_QUERY).await?;
+        let stmt = client
+            .prepare_cached(FIND_FILES_BY_ARTICLE_ID_QUERY)
+            .await?;
         let rows = client.query(&stmt, &[&article_id]).await?;
         Ok(rows.iter().map(map_uploaded_file_row).collect())
     }

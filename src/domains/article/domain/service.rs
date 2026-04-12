@@ -8,7 +8,7 @@ use deadpool_postgres::Pool;
 use crate::{
     common::error::AppError,
     domains::article::dto::article_dto::{
-        ArticleDto, ArticleRelationDto, CreateArticleDto, UpdateArticleDtoWithIdDto
+        ArticleDto, ArticleRelationDto, CreateArticleDto, UpdateArticleDtoWithIdDto,
     },
 };
 
@@ -46,5 +46,4 @@ pub trait ArticleServiceTrait: Send + Sync {
 
     /// Deletes a article by its ID.
     async fn delete_article(&self, id: uuid::Uuid) -> Result<String, AppError>;
-
 }

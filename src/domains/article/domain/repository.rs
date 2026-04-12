@@ -6,9 +6,9 @@ use crate::domains::article::dto::article_dto::{
 };
 
 use super::model::Article;
-use uuid::Uuid;
 use async_trait::async_trait;
 use deadpool_postgres::{Pool, PoolError, Transaction};
+use uuid::Uuid;
 
 /// Trait representing repository-level operations for article entities.
 /// Provides an interface for data persistence and retrieval of article records.
@@ -42,11 +42,6 @@ pub trait ArticleRepository: Send + Sync {
         article: UpdateArticleDtoWithIdDto,
     ) -> Result<Option<Article>, PoolError>;
 
-   
     /// Deletes a article record by its ID.
-    async fn delete(
-        &self,
-        tx: &mut Transaction<'_>,
-        id: Uuid,
-    ) -> Result<bool, PoolError>;
+    async fn delete(&self, tx: &mut Transaction<'_>, id: Uuid) -> Result<bool, PoolError>;
 }

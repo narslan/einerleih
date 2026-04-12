@@ -111,7 +111,8 @@ impl FileServiceTrait for FileService {
     }
 
     fn remove_file_from_disk(&self, file_relative_path: &str) -> Result<(), AppError> {
-        let file_path = FilePath::new(self.config.assets_private_path.as_str()).join(file_relative_path);
+        let file_path =
+            FilePath::new(self.config.assets_private_path.as_str()).join(file_relative_path);
 
         if !file_path.exists() {
             return Ok(());

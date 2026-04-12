@@ -87,9 +87,7 @@ pub async fn create_test_router() -> Router {
 }
 
 /// Helper function to deserialize the body of a request into a specific type
-pub async fn deserialize_json_body<T: serde::de::DeserializeOwned>(
-    body: Body,
-) -> TestResult<T> {
+pub async fn deserialize_json_body<T: serde::de::DeserializeOwned>(body: Body) -> TestResult<T> {
     let bytes = body
         .collect()
         .await

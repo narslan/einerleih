@@ -1,3 +1,5 @@
+use std::{error::Error as StdError, fmt::Write as _};
+
 use axum::{
     BoxError,
     http::StatusCode,
@@ -57,7 +59,7 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
-        let status = match self {
+        let status = match &self {
             AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
             AppError::DatabaseError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
@@ -73,6 +75,9 @@ impl IntoResponse for AppError {
             AppError::TokenCreation => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::UserNotFound => StatusCode::NOT_FOUND,
         };
+
+        log_app_error(&self, status);
+
         let body = axum::Json(ApiResponse::<()> {
             status: status.as_u16(),
             message: self.to_string(),
@@ -80,6 +85,42 @@ impl IntoResponse for AppError {
         });
 
         (status, body).into_response()
+    }
+}
+
+fn log_app_error(error: &AppError, status: StatusCode) {
+    if !status.is_server_error() {
+        return;
+    }
+
+    error!(
+        status = status.as_u16(),
+        error = %error,
+        error_debug = ?error,
+        source_chain = %format_error_sources(error),
+        "Application error"
+    );
+}
+
+fn format_error_sources(error: &(dyn StdError + 'static)) -> String {
+    let mut sources = String::new();
+    let mut current = error.source();
+    let mut index = 0;
+
+    while let Some(source) = current {
+        if index > 0 {
+            sources.push_str(" | ");
+        }
+
+        let _ = write!(sources, "#{index}: {source}");
+        current = source.source();
+        index += 1;
+    }
+
+    if sources.is_empty() {
+        "none".into()
+    } else {
+        sources
     }
 }
 
