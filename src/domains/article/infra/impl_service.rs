@@ -5,6 +5,7 @@ use crate::{
             domain::{repository::ArticleRepository, service::ArticleServiceTrait},
             dto::article_dto::{
                 ArticleDto, ArticleRelationDto, CreateArticleDto, UpdateArticleDtoWithIdDto,
+                normalize_article_tags,
             },
             infra::impl_repository::ArticleRepo,
         },
@@ -48,7 +49,14 @@ impl ArticleServiceTrait for ArticleService {
                     .find_by_article_id(self.pool.clone(), id)
                     .await
                     .map_err(AppError::DatabaseError)?;
-                Ok(ArticleDto::from_article_with_pictures(article, pictures))
+                let tags = self
+                    .repo
+                    .find_tags_by_article_id(self.pool.clone(), id)
+                    .await
+                    .map_err(AppError::DatabaseError)?;
+                Ok(ArticleDto::from_article_with_pictures(
+                    article, pictures, tags,
+                ))
             }
             Ok(None) => Err(AppError::NotFound("Article not found".into())),
             Err(err) => {
@@ -92,7 +100,14 @@ impl ArticleServiceTrait for ArticleService {
                         .find_by_article_id(self.pool.clone(), article.article_id)
                         .await
                         .map_err(AppError::DatabaseError)?;
-                    article_dtos.push(ArticleDto::from_article_with_pictures(article, pictures));
+                    let tags = self
+                        .repo
+                        .find_tags_by_article_id(self.pool.clone(), article.article_id)
+                        .await
+                        .map_err(AppError::DatabaseError)?;
+                    article_dtos.push(ArticleDto::from_article_with_pictures(
+                        article, pictures, tags,
+                    ));
                 }
                 Ok(article_dtos)
             }
@@ -113,7 +128,14 @@ impl ArticleServiceTrait for ArticleService {
                         .find_by_article_id(self.pool.clone(), article.article_id)
                         .await
                         .map_err(AppError::DatabaseError)?;
-                    article_dtos.push(ArticleDto::from_article_with_pictures(article, pictures));
+                    let tags = self
+                        .repo
+                        .find_tags_by_article_id(self.pool.clone(), article.article_id)
+                        .await
+                        .map_err(AppError::DatabaseError)?;
+                    article_dtos.push(ArticleDto::from_article_with_pictures(
+                        article, pictures, tags,
+                    ));
                 }
                 Ok(article_dtos)
             }
@@ -146,8 +168,16 @@ impl ArticleServiceTrait for ArticleService {
         let mut client = self.pool.get().await.unwrap();
         let mut tx = client.transaction().await.unwrap();
         let id = Uuid::new_v4();
+        let tags =
+            normalize_article_tags(&create_article.tags).map_err(AppError::ValidationError)?;
+        let actor_id = create_article.created_by;
         match self.repo.create(&mut tx, id, create_article).await {
             Ok(()) => {
+                if let Err(err) = self.repo.replace_tags(&mut tx, id, &tags, actor_id).await {
+                    tracing::error!("Error assigning article tags: {err}");
+                    let _ = tx.rollback().await;
+                    return Err(AppError::DatabaseError(err));
+                }
                 tx.commit().await.map_err(|err| {
                     tracing::error!("Error committing article creation: {err}");
                     AppError::InternalError
@@ -174,7 +204,14 @@ impl ArticleServiceTrait for ArticleService {
                     .find_by_article_id(self.pool.clone(), id)
                     .await
                     .map_err(AppError::DatabaseError)?;
-                Ok(ArticleDto::from_article_with_pictures(article, pictures))
+                let tags = self
+                    .repo
+                    .find_tags_by_article_id(self.pool.clone(), id)
+                    .await
+                    .map_err(AppError::DatabaseError)?;
+                Ok(ArticleDto::from_article_with_pictures(
+                    article, pictures, tags,
+                ))
             }
             Ok(None) => Err(AppError::NotFound("Article not found".into())),
             Err(err) => {
@@ -192,9 +229,16 @@ impl ArticleServiceTrait for ArticleService {
     ) -> Result<ArticleDto, AppError> {
         let mut client = self.pool.get().await.unwrap();
         let mut tx = client.transaction().await.unwrap();
+        let tags = normalize_article_tags(&payload.tags).map_err(AppError::ValidationError)?;
+        let actor_id = payload.modified_by;
 
         match self.repo.update(&mut tx, id, payload).await {
             Ok(Some(article)) => {
+                if let Err(err) = self.repo.replace_tags(&mut tx, id, &tags, actor_id).await {
+                    tracing::error!("Error assigning article tags: {err}");
+                    let _ = tx.rollback().await;
+                    return Err(AppError::DatabaseError(err));
+                }
                 tx.commit().await.map_err(|err| {
                     tracing::error!("Error committing article update: {err}");
                     AppError::InternalError
@@ -204,7 +248,14 @@ impl ArticleServiceTrait for ArticleService {
                     .find_by_article_id(self.pool.clone(), id)
                     .await
                     .map_err(AppError::DatabaseError)?;
-                Ok(ArticleDto::from_article_with_pictures(article, pictures))
+                let tags = self
+                    .repo
+                    .find_tags_by_article_id(self.pool.clone(), id)
+                    .await
+                    .map_err(AppError::DatabaseError)?;
+                Ok(ArticleDto::from_article_with_pictures(
+                    article, pictures, tags,
+                ))
             }
             Ok(None) => {
                 let _ = tx.rollback().await;

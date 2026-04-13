@@ -6,9 +6,25 @@ use validator::Validate;
 use crate::domains::article::domain::model::{Article, ArticleStatus};
 use crate::domains::file::{UploadedFile, dto::file_dto::UploadedFileDto};
 
+const MAX_TAG_COUNT: usize = 12;
+const MAX_TAG_LENGTH: usize = 64;
+
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, ToSchema)]
 pub struct ArticleRelationDto {
     pub id: uuid::Uuid,
+    pub name: String,
+}
+
+#[derive(Clone, PartialEq, Debug, Deserialize, Serialize, ToSchema)]
+pub struct ArticleTagDto {
+    pub id: uuid::Uuid,
+    pub slug: String,
+    pub name: String,
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct NormalizedArticleTag {
+    pub slug: String,
     pub name: String,
 }
 
@@ -31,6 +47,7 @@ pub struct ArticleDto {
     pub status: ArticleStatus,
     pub cover_image: Option<ArticleImageDto>,
     pub pictures: Vec<ArticleImageDto>,
+    pub tags: Vec<ArticleTagDto>,
 
     pub created_by: Option<uuid::Uuid>,
     #[serde(with = "crate::common::ts_format::option")]
@@ -48,6 +65,8 @@ pub struct CreateArticleDto {
     pub description: String,
     pub town: uuid::Uuid,
     pub status: ArticleStatus,
+    #[serde(default)]
+    pub tags: Vec<String>,
     #[serde(default)]
     pub created_by: uuid::Uuid,
     #[serde(default)]
@@ -74,6 +93,8 @@ pub struct UpdateArticleDtoWithIdDto {
     pub description: String,
     pub town: uuid::Uuid,
     pub status: ArticleStatus,
+    #[serde(default)]
+    pub tags: Vec<String>,
     #[serde(default)]
     pub modified_by: uuid::Uuid,
 }
@@ -116,7 +137,11 @@ impl From<UploadedFile> for ArticleImageDto {
 }
 
 impl ArticleDto {
-    pub fn from_article_with_pictures(article: Article, pictures: Vec<UploadedFile>) -> Self {
+    pub fn from_article_with_pictures(
+        article: Article,
+        pictures: Vec<UploadedFile>,
+        tags: Vec<ArticleTagDto>,
+    ) -> Self {
         let mut picture_dtos: Vec<ArticleImageDto> =
             pictures.into_iter().map(ArticleImageDto::from).collect();
         picture_dtos.sort_by_key(|picture| (picture.sort_order, !picture.is_cover));
@@ -140,10 +165,80 @@ impl ArticleDto {
             status: article.status,
             cover_image,
             pictures: picture_dtos,
+            tags,
             created_by: article.created_by,
             created_at: article.created_at,
             modified_by: article.modified_by,
             modified_at: article.modified_at,
         }
     }
+}
+
+pub fn normalize_article_tags(raw_tags: &[String]) -> Result<Vec<NormalizedArticleTag>, String> {
+    let mut tags = Vec::new();
+
+    for raw_tag in raw_tags {
+        for candidate in raw_tag.split(',') {
+            let Some(tag) = normalize_article_tag(candidate)? else {
+                continue;
+            };
+
+            if tags
+                .iter()
+                .any(|existing: &NormalizedArticleTag| existing.slug == tag.slug)
+            {
+                continue;
+            }
+
+            tags.push(tag);
+
+            if tags.len() > MAX_TAG_COUNT {
+                return Err(format!("Maximal {MAX_TAG_COUNT} Tags sind erlaubt"));
+            }
+        }
+    }
+
+    Ok(tags)
+}
+
+fn normalize_article_tag(raw_tag: &str) -> Result<Option<NormalizedArticleTag>, String> {
+    let name = raw_tag
+        .trim()
+        .trim_start_matches('#')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if name.is_empty() {
+        return Ok(None);
+    }
+
+    if name.chars().count() > MAX_TAG_LENGTH {
+        return Err(format!(
+            "Ein Tag darf maximal {MAX_TAG_LENGTH} Zeichen lang sein"
+        ));
+    }
+
+    let mut slug = String::new();
+    let mut last_was_separator = false;
+
+    for character in name.to_lowercase().chars() {
+        if character.is_alphanumeric() {
+            slug.push(character);
+            last_was_separator = false;
+        } else if character.is_whitespace() || character == '-' || character == '_' {
+            if !slug.is_empty() && !last_was_separator {
+                slug.push('-');
+                last_was_separator = true;
+            }
+        }
+    }
+
+    let slug = slug.trim_matches('-').to_string();
+
+    if slug.is_empty() {
+        return Err(format!("Ungültiger Tag: {raw_tag}"));
+    }
+
+    Ok(Some(NormalizedArticleTag { slug, name }))
 }

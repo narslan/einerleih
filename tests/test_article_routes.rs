@@ -29,6 +29,7 @@ async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
         description: "Ein Testartikel fuer die API-Tests".to_string(),
         town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
         status: ArticleStatus::Aktiv,
+        tags: Vec::new(),
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
     };
@@ -179,6 +180,39 @@ async fn test_create_article() {
         article_dto.modified_by,
         Some(uuid::Uuid::parse_str(TEST_AUTH_USER_ID).unwrap())
     );
+}
+
+#[tokio::test]
+async fn test_create_article_with_user_tags() {
+    let uuid_text = uuid::Uuid::new_v4().simple().to_string();
+    let short_id = &uuid_text[..8];
+    let payload = CreateArticleDto {
+        name: format!("tag-{short_id}"),
+        category: uuid::Uuid::parse_str(TEST_CATEGORY_ID).unwrap(),
+        description: "Ein Testartikel mit Tags".to_string(),
+        town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
+        status: ArticleStatus::Aktiv,
+        tags: vec![
+            "#Werkzeug".to_string(),
+            "Freizeit".to_string(),
+            "werkzeug".to_string(),
+        ],
+        created_by: uuid::Uuid::nil(),
+        modified_by: uuid::Uuid::nil(),
+    };
+
+    let session_cookie = login_and_get_session_cookie().await;
+    let response =
+        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
+    let (parts, body) = response.into_parts();
+    let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
+
+    assert_eq!(parts.status, StatusCode::OK);
+    let article = response_body.0.data.unwrap();
+    let slugs: Vec<String> = article.tags.iter().map(|tag| tag.slug.clone()).collect();
+
+    assert_eq!(slugs, vec!["freizeit".to_string(), "werkzeug".to_string()]);
+    assert_eq!(article.tags.len(), 2);
 }
 
 #[tokio::test]

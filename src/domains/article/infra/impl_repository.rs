@@ -7,7 +7,8 @@ use uuid::Uuid;
 use crate::domains::article::domain::model::{Article, ArticleStatus};
 use crate::domains::article::domain::repository::ArticleRepository;
 use crate::domains::article::dto::article_dto::{
-    ArticleRelationDto, CreateArticleDto, UpdateArticleDtoWithIdDto,
+    ArticleRelationDto, ArticleTagDto, CreateArticleDto, NormalizedArticleTag,
+    UpdateArticleDtoWithIdDto,
 };
 
 pub struct ArticleRepo;
@@ -138,6 +139,33 @@ const FIND_TOWNS_QUERY: &str = r#"
     ORDER BY name ASC, town_id ASC
     "#;
 
+const FIND_TAGS_BY_ARTICLE_ID_QUERY: &str = r#"
+    SELECT tags.tag_id, tags.slug, tags.name
+    FROM tags
+    JOIN article_tags ON article_tags.tag_id = tags.tag_id
+    WHERE article_tags.article_id = $1
+    ORDER BY tags.name ASC, tags.tag_id ASC
+    "#;
+
+const DELETE_ARTICLE_TAGS_QUERY: &str = r#"
+    DELETE FROM article_tags
+    WHERE article_id = $1
+    "#;
+
+const UPSERT_TAG_QUERY: &str = r#"
+    INSERT INTO tags (tag_id, slug, name, created_by)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (slug) DO UPDATE
+    SET name = tags.name
+    RETURNING tag_id
+    "#;
+
+const INSERT_ARTICLE_TAG_QUERY: &str = r#"
+    INSERT INTO article_tags (article_id, tag_id)
+    VALUES ($1, $2)
+    ON CONFLICT (article_id, tag_id) DO NOTHING
+    "#;
+
 fn map_article_row(row: &Row) -> Article {
     let status: String = row.get(7);
 
@@ -209,6 +237,53 @@ impl ArticleRepository for ArticleRepo {
                 name: row.get(1),
             })
             .collect())
+    }
+
+    async fn find_tags_by_article_id(
+        &self,
+        pool: Pool,
+        article_id: Uuid,
+    ) -> Result<Vec<ArticleTagDto>, PoolError> {
+        let client = pool.get().await?;
+        let stmt = client.prepare_cached(FIND_TAGS_BY_ARTICLE_ID_QUERY).await?;
+        let rows = client.query(&stmt, &[&article_id]).await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| ArticleTagDto {
+                id: row.get(0),
+                slug: row.get(1),
+                name: row.get(2),
+            })
+            .collect())
+    }
+
+    async fn replace_tags(
+        &self,
+        tx: &mut Transaction<'_>,
+        article_id: Uuid,
+        tags: &[NormalizedArticleTag],
+        actor_id: Uuid,
+    ) -> Result<(), PoolError> {
+        let delete_stmt = tx.prepare_cached(DELETE_ARTICLE_TAGS_QUERY).await?;
+        tx.execute(&delete_stmt, &[&article_id]).await?;
+
+        let upsert_tag_stmt = tx.prepare_cached(UPSERT_TAG_QUERY).await?;
+        let insert_article_tag_stmt = tx.prepare_cached(INSERT_ARTICLE_TAG_QUERY).await?;
+
+        for tag in tags {
+            let tag_id = Uuid::new_v4();
+            let row = tx
+                .query_one(
+                    &upsert_tag_stmt,
+                    &[&tag_id, &tag.slug, &tag.name, &actor_id],
+                )
+                .await?;
+            let stored_tag_id: Uuid = row.get(0);
+            tx.execute(&insert_article_tag_stmt, &[&article_id, &stored_tag_id])
+                .await?;
+        }
+
+        Ok(())
     }
 
     async fn create(

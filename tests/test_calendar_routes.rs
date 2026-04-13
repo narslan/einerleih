@@ -31,6 +31,7 @@ async fn create_article() -> Result<ArticleDto, AppError> {
         description: "Artikel fuer Kalender-Tests".to_string(),
         town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
         status: ArticleStatus::Aktiv,
+        tags: Vec::new(),
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
     };

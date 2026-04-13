@@ -8,7 +8,7 @@ use crate::{
             dto::article_dto::{
                 ArticleDto, CreateArticleDto, CreateArticleWithPicturesResponseDto,
                 ExistingArticlePictureDto, NewArticlePictureDto, UpdateArticleDtoWithIdDto,
-                UpdateArticleWithPicturesResponseDto,
+                UpdateArticleWithPicturesResponseDto, normalize_article_tags,
             },
             infra::impl_repository::ArticleRepo,
         },
@@ -59,11 +59,20 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
 
         let article_id = Uuid::new_v4();
         let modified_by = payload.modified_by;
+        let created_by = payload.created_by;
+        let tags = normalize_article_tags(&payload.tags).map_err(AppError::ValidationError)?;
         self.article_repo
             .create(&mut tx, article_id, payload)
             .await
             .map_err(|err| {
                 tracing::error!("Error creating article in workflow: {err}");
+                AppError::DatabaseError(err)
+            })?;
+        self.article_repo
+            .replace_tags(&mut tx, article_id, &tags, created_by)
+            .await
+            .map_err(|err| {
+                tracing::error!("Error assigning article tags in workflow: {err}");
                 AppError::DatabaseError(err)
             })?;
 
@@ -136,9 +145,21 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
                 tracing::error!("Error loading created article files in workflow: {err}");
                 AppError::DatabaseError(err)
             })?;
+        let created_tags = self
+            .article_repo
+            .find_tags_by_article_id(self.pool.clone(), article_id)
+            .await
+            .map_err(|err| {
+                tracing::error!("Error loading created article tags in workflow: {err}");
+                AppError::DatabaseError(err)
+            })?;
 
         Ok(CreateArticleWithPicturesResponseDto {
-            article: ArticleDto::from_article_with_pictures(created_article, created_files),
+            article: ArticleDto::from_article_with_pictures(
+                created_article,
+                created_files,
+                created_tags,
+            ),
             uploaded_files,
         })
     }
@@ -235,6 +256,7 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
         }
 
         let modified_by = payload.modified_by;
+        let tags = normalize_article_tags(&payload.tags).map_err(AppError::ValidationError)?;
         let updated_article = self
             .article_repo
             .update(&mut tx, article_id, payload)
@@ -244,6 +266,13 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
                 AppError::DatabaseError(err)
             })?
             .ok_or_else(|| AppError::NotFound("Article not found".into()))?;
+        self.article_repo
+            .replace_tags(&mut tx, article_id, &tags, modified_by)
+            .await
+            .map_err(|err| {
+                tracing::error!("Error assigning article tags in update workflow: {err}");
+                AppError::DatabaseError(err)
+            })?;
 
         for existing_picture in &existing_pictures {
             self.file_repo
@@ -320,9 +349,21 @@ impl ArticleWorkflowServiceTrait for ArticleWorkflowService {
                 tracing::error!("Error loading updated files in workflow: {err}");
                 AppError::DatabaseError(err)
             })?;
+        let updated_tags = self
+            .article_repo
+            .find_tags_by_article_id(self.pool.clone(), article_id)
+            .await
+            .map_err(|err| {
+                tracing::error!("Error loading updated article tags in workflow: {err}");
+                AppError::DatabaseError(err)
+            })?;
 
         Ok(UpdateArticleWithPicturesResponseDto {
-            article: ArticleDto::from_article_with_pictures(updated_article, updated_files.clone()),
+            article: ArticleDto::from_article_with_pictures(
+                updated_article,
+                updated_files.clone(),
+                updated_tags,
+            ),
             uploaded_files: updated_files
                 .into_iter()
                 .map(UploadedFileDto::from)

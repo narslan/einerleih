@@ -110,6 +110,13 @@ pub async fn create_booking(
     payload.modified_by = auth.id;
     payload.requested_by = Some(auth.id);
 
+    let article = state.article_service.get_article_by_id(article_id).await?;
+    if article.created_by == Some(auth.id) {
+        return Err(AppError::ValidationError(
+            "You cannot request a booking for your own article".into(),
+        ));
+    }
+
     let booking = state
         .booking_service
         .create_booking(article_id, payload)

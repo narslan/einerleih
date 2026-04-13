@@ -174,6 +174,7 @@ pub async fn create_article_with_pictures(
         description: required_field(&fields, "description")?,
         town: parse_uuid_field(&fields, "town")?,
         status: parse_article_status(required_field(&fields, "status")?.as_str())?,
+        tags: parse_optional_json_field(&fields, "tags")?.unwrap_or_default(),
         created_by: auth.id,
         modified_by: auth.id,
     };
@@ -215,6 +216,7 @@ pub async fn create_my_article_with_pictures(
         description: required_field(&fields, "description")?,
         town: parse_uuid_field(&fields, "town")?,
         status: parse_article_status(required_field(&fields, "status")?.as_str())?,
+        tags: parse_optional_json_field(&fields, "tags")?.unwrap_or_default(),
         created_by: auth.id,
         modified_by: auth.id,
     };
@@ -282,6 +284,7 @@ pub async fn update_article_with_pictures(
         description: required_multi_field(&fields, "description")?,
         town: parse_uuid_multi_field(&fields, "town")?,
         status: parse_article_status(required_multi_field(&fields, "status")?.as_str())?,
+        tags: parse_optional_json_multi_field(&fields, "tags")?.unwrap_or_default(),
         modified_by: auth.id,
     };
 
@@ -338,6 +341,7 @@ pub async fn update_my_article_with_pictures(
         description: required_multi_field(&fields, "description")?,
         town: parse_uuid_multi_field(&fields, "town")?,
         status: parse_article_status(required_multi_field(&fields, "status")?.as_str())?,
+        tags: parse_optional_json_multi_field(&fields, "tags")?.unwrap_or_default(),
         modified_by: auth.id,
     };
 

@@ -175,7 +175,9 @@ async fn drop_application_tables(pool: &Pool) -> MigrationResult<()> {
             DROP TABLE IF EXISTS event_calendar;
             DROP TABLE IF EXISTS user_auth;
             DROP TABLE IF EXISTS user_roles;
+            DROP TABLE IF EXISTS article_tags;
             DROP TABLE IF EXISTS article;
+            DROP TABLE IF EXISTS tags;
             DROP TABLE IF EXISTS categories;
             DROP TABLE IF EXISTS towns;
             DROP TABLE IF EXISTS roles;

@@ -32,6 +32,7 @@ async fn create_article() -> Result<ArticleDto, AppError> {
         description: "Artikel fuer Buchungs-Tests".to_string(),
         town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
         status: ArticleStatus::Aktiv,
+        tags: Vec::new(),
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
     };
@@ -254,10 +255,11 @@ async fn test_create_confirm_and_list_booking() {
     let article = create_article()
         .await
         .expect("Failed to create article for booking test");
-    let session_cookie = login_and_get_session_cookie().await;
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let requester_session_cookie = signup_and_get_session_cookie().await;
     let payload = create_booking_payload(8, 12);
 
-    let booking = create_booking(article.article_id, &session_cookie, &payload).await;
+    let booking = create_booking(article.article_id, &requester_session_cookie, &payload).await;
     assert_eq!(booking.article_id, article.article_id);
     assert_eq!(booking.status, BookingStatus::Requested);
     assert_eq!(booking.requester_email, payload.requester_email);
@@ -268,7 +270,7 @@ async fn test_create_confirm_and_list_booking() {
             "/article/{}/bookings/{}/confirm",
             article.article_id, booking.booking_id
         ),
-        &session_cookie,
+        &owner_session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -287,7 +289,7 @@ async fn test_create_confirm_and_list_booking() {
     let response = request_with_session(
         Method::GET,
         &format!("/article/{}/bookings", article.article_id),
-        &session_cookie,
+        &owner_session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -308,11 +310,12 @@ async fn test_rejects_overlapping_confirmed_booking() {
     let article = create_article()
         .await
         .expect("Failed to create article for booking test");
-    let session_cookie = login_and_get_session_cookie().await;
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let requester_session_cookie = signup_and_get_session_cookie().await;
 
     let first = create_booking(
         article.article_id,
-        &session_cookie,
+        &requester_session_cookie,
         &create_booking_payload(8, 12),
     )
     .await;
@@ -322,7 +325,7 @@ async fn test_rejects_overlapping_confirmed_booking() {
             "/article/{}/bookings/{}/confirm",
             article.article_id, first.booking_id
         ),
-        &session_cookie,
+        &owner_session_cookie,
     )
     .await;
     let (parts, body) = response.into_parts();
@@ -336,7 +339,7 @@ async fn test_rejects_overlapping_confirmed_booking() {
 
     let overlapping = create_booking(
         article.article_id,
-        &session_cookie,
+        &requester_session_cookie,
         &create_booking_payload(10, 11),
     )
     .await;
@@ -346,8 +349,27 @@ async fn test_rejects_overlapping_confirmed_booking() {
             "/article/{}/bookings/{}/confirm",
             article.article_id, overlapping.booking_id
         ),
-        &session_cookie,
+        &owner_session_cookie,
     )
     .await;
+    assert_eq!(response.into_parts().0.status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_article_owner_cannot_request_own_article() {
+    let article = create_article()
+        .await
+        .expect("Failed to create article for self booking test");
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let payload = create_booking_payload(13, 16);
+
+    let response = request_with_session_body(
+        Method::POST,
+        &format!("/article/{}/bookings", article.article_id),
+        &owner_session_cookie,
+        &payload,
+    )
+    .await;
+
     assert_eq!(response.into_parts().0.status, StatusCode::BAD_REQUEST);
 }

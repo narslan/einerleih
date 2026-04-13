@@ -2,7 +2,8 @@
 // the database operations related to article management.
 
 use crate::domains::article::dto::article_dto::{
-    ArticleRelationDto, CreateArticleDto, UpdateArticleDtoWithIdDto,
+    ArticleRelationDto, ArticleTagDto, CreateArticleDto, NormalizedArticleTag,
+    UpdateArticleDtoWithIdDto,
 };
 
 use super::model::Article;
@@ -28,6 +29,22 @@ pub trait ArticleRepository: Send + Sync {
 
     /// Returns available towns for article assignment.
     async fn find_towns(&self, pool: Pool) -> Result<Vec<ArticleRelationDto>, PoolError>;
+
+    /// Retrieves user-defined tags assigned to the given article.
+    async fn find_tags_by_article_id(
+        &self,
+        pool: Pool,
+        article_id: Uuid,
+    ) -> Result<Vec<ArticleTagDto>, PoolError>;
+
+    /// Replaces all tags assigned to an article within the given transaction.
+    async fn replace_tags(
+        &self,
+        tx: &mut Transaction<'_>,
+        article_id: Uuid,
+        tags: &[NormalizedArticleTag],
+        actor_id: Uuid,
+    ) -> Result<(), PoolError>;
 
     /// Creates a new article record in the database within the given transaction.
     async fn create(

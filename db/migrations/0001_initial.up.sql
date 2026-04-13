@@ -47,6 +47,14 @@ CREATE TABLE categories (
     name VARCHAR(36) NOT NULL
 );
 
+CREATE TABLE tags (
+    tag_id UUID PRIMARY KEY,
+    slug VARCHAR(64) NOT NULL UNIQUE,
+    name VARCHAR(64) NOT NULL,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE article (
     article_id UUID PRIMARY KEY,
     name VARCHAR(36) NOT NULL,
@@ -60,6 +68,16 @@ CREATE TABLE article (
     modified_by UUID,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE article_tags (
+    article_id UUID NOT NULL REFERENCES article(article_id) ON DELETE CASCADE,
+    tag_id UUID NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (article_id, tag_id)
+);
+
+CREATE INDEX idx_article_tags_tag_id
+    ON article_tags(tag_id);
 
 CREATE TABLE uploaded_files (
     id UUID PRIMARY KEY,

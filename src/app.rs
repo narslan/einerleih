@@ -27,7 +27,9 @@ use crate::{
         },
         auth::{UserAuthApiDoc, user_auth_routes},
         booking::{BookingApiDoc, admin_booking_routes, user_booking_routes},
-        calendar::{CalendarApiDoc, protected_calendar_routes, user_calendar_routes},
+        calendar::{
+            CalendarApiDoc, protected_calendar_routes, public_calendar_routes, user_calendar_routes,
+        },
         file::{FileApiDoc, protected_file_routes, public_file_routes},
         mailbox::{MailboxApiDoc, user_mailbox_routes},
         user::{UserApiDoc, user_routes},
@@ -112,7 +114,10 @@ pub fn create_router(state: AppState) -> Router {
         .layer(middleware::from_fn(make_request_response_inspecter(true)));
 
     let public_article_routes = Router::new()
-        .nest("/article", public_article_routes())
+        .nest(
+            "/article",
+            public_article_routes().merge(public_calendar_routes()),
+        )
         .layer(middleware::from_fn(make_request_response_inspecter(false)));
 
     let public_file_routes = Router::new()

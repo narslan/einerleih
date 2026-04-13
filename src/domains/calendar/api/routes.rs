@@ -33,11 +33,15 @@ use utoipa::OpenApi;
 )]
 pub struct CalendarApiDoc;
 
-pub fn protected_calendar_routes() -> Router<AppState> {
+pub fn public_calendar_routes() -> Router<AppState> {
     Router::new()
         .route("/{article_id}/calendar", get(get_calendar_entries))
-        .route("/{article_id}/calendar", post(create_calendar_entry))
         .route("/{article_id}/calendar/{event_id}", get(get_calendar_entry))
+}
+
+pub fn protected_calendar_routes() -> Router<AppState> {
+    Router::new()
+        .route("/{article_id}/calendar", post(create_calendar_entry))
         .route(
             "/{article_id}/calendar/{event_id}",
             put(update_calendar_entry),
