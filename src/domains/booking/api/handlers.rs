@@ -108,9 +108,7 @@ pub async fn create_booking(
     let mut payload = payload;
     payload.created_by = auth.id;
     payload.modified_by = auth.id;
-    if payload.requested_by.is_none() {
-        payload.requested_by = Some(auth.id);
-    }
+    payload.requested_by = Some(auth.id);
 
     let booking = state
         .booking_service

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -43,8 +43,8 @@ pub struct Booking {
     pub requester_name: Option<String>,
     pub requester_email: Option<String>,
     pub note: Option<String>,
-    pub start_time: DateTime<Utc>,
-    pub end_time: DateTime<Utc>,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
     pub status: BookingStatus,
     pub approved_by: Option<uuid::Uuid>,
     pub approved_at: Option<DateTime<Utc>>,

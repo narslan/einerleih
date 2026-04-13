@@ -29,6 +29,7 @@ use crate::{
         booking::{BookingApiDoc, admin_booking_routes, user_booking_routes},
         calendar::{CalendarApiDoc, protected_calendar_routes, user_calendar_routes},
         file::{FileApiDoc, protected_file_routes, public_file_routes},
+        mailbox::{MailboxApiDoc, user_mailbox_routes},
         user::{UserApiDoc, user_routes},
     },
 };
@@ -57,6 +58,7 @@ fn create_swagger_ui() -> SwaggerUi {
         .url("/api-docs/article/openapi.json", ArticleApiDoc::openapi())
         .url("/api-docs/calendar/openapi.json", CalendarApiDoc::openapi())
         .url("/api-docs/booking/openapi.json", BookingApiDoc::openapi())
+        .url("/api-docs/mailbox/openapi.json", MailboxApiDoc::openapi())
         .url("/api-docs/file/openapi.json", FileApiDoc::openapi())
 }
 
@@ -92,6 +94,7 @@ pub fn create_router(state: AppState) -> Router {
                 .merge(user_booking_routes())
                 .merge(user_calendar_routes()),
         )
+        .merge(user_mailbox_routes())
         .route_layer(middleware::from_fn(session_auth::require_session))
         .layer(middleware::from_fn(make_request_response_inspecter(true)));
 

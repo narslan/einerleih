@@ -8,6 +8,7 @@ use crate::domains::auth::{AuthService, AuthServiceTrait};
 use crate::domains::booking::{BookingService, BookingServiceTrait};
 use crate::domains::calendar::{CalendarService, CalendarServiceTrait};
 use crate::domains::file::FileServiceTrait;
+use crate::domains::mailbox::{MailboxService, MailboxServiceTrait};
 use crate::domains::user::UserServiceTrait;
 use crate::{
     common::app_state::AppState,
@@ -29,6 +30,8 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         ArticleWorkflowService::create_service(pool.clone(), file_service.clone());
     let calendar_service: Arc<dyn CalendarServiceTrait> =
         CalendarService::create_service(pool.clone());
+    let mailbox_service: Arc<dyn MailboxServiceTrait> =
+        MailboxService::create_service(pool.clone());
     let booking_service: Arc<dyn BookingServiceTrait> =
         BookingService::create_service(pool.clone());
     AppState::new(
@@ -41,6 +44,7 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         file_service,
         calendar_service,
         booking_service,
+        mailbox_service,
     )
 }
 

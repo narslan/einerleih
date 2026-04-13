@@ -8,6 +8,7 @@ use crate::domains::{
     booking::BookingServiceTrait,
     calendar::CalendarServiceTrait,
     file::FileServiceTrait,
+    mailbox::MailboxServiceTrait,
     user::UserServiceTrait,
 };
 
@@ -38,6 +39,9 @@ pub struct AppState {
     /// Service handling booking requests and status transitions.
     pub booking_service: Arc<dyn BookingServiceTrait>,
 
+    /// Service handling current-user mailbox entries.
+    pub mailbox_service: Arc<dyn MailboxServiceTrait>,
+
     /// Global application configuration.
     pub config: Config,
 }
@@ -53,6 +57,7 @@ impl AppState {
         file_service: Arc<dyn FileServiceTrait>,
         calendar_service: Arc<dyn CalendarServiceTrait>,
         booking_service: Arc<dyn BookingServiceTrait>,
+        mailbox_service: Arc<dyn MailboxServiceTrait>,
     ) -> Self {
         Self {
             pool,
@@ -64,6 +69,7 @@ impl AppState {
             file_service,
             calendar_service,
             booking_service,
+            mailbox_service,
         }
     }
 }

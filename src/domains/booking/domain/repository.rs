@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use deadpool_postgres::{Pool, PoolError, Transaction};
 use uuid::Uuid;
 
@@ -16,8 +17,8 @@ pub trait BookingRepository: Send + Sync {
         pool: Pool,
         article_id: Uuid,
         booking_id: Option<Uuid>,
-        start_time: chrono::DateTime<chrono::Utc>,
-        end_time: chrono::DateTime<chrono::Utc>,
+        start_date: NaiveDate,
+        end_date: NaiveDate,
     ) -> Result<bool, PoolError>;
 
     async fn find_by_article_id(

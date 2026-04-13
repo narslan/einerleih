@@ -1,5 +1,5 @@
 use axum::http::{Method, StatusCode};
-use chrono::{TimeZone, Utc};
+use chrono::NaiveDate;
 
 use einerleih::{
     common::{dto::RestApiResponse, error::AppError},
@@ -12,6 +12,7 @@ use einerleih::{
             BookingStatus,
             dto::booking_dto::{BookingDto, CreateBookingDto},
         },
+        mailbox::{MailboxDirection, dto::mailbox_dto::MailboxEntryDto},
     },
 };
 
@@ -50,14 +51,14 @@ async fn create_article() -> Result<ArticleDto, AppError> {
     Ok(response_body.0.data.unwrap())
 }
 
-fn create_booking_payload(start_hour: u32, end_hour: u32) -> CreateBookingDto {
+fn create_booking_payload(start_day: u32, end_day: u32) -> CreateBookingDto {
     CreateBookingDto {
         requested_by: None,
         requester_name: Some("API Test".to_string()),
         requester_email: Some("apitest@example.com".to_string()),
         note: Some("Bitte reservieren".to_string()),
-        start_time: Utc.with_ymd_and_hms(2026, 5, 2, start_hour, 0, 0).unwrap(),
-        end_time: Utc.with_ymd_and_hms(2026, 5, 2, end_hour, 0, 0).unwrap(),
+        start_date: NaiveDate::from_ymd_opt(2026, 5, start_day).unwrap(),
+        end_date: NaiveDate::from_ymd_opt(2026, 5, end_day).unwrap(),
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
     }
@@ -108,6 +109,80 @@ async fn test_regular_user_can_create_but_not_administer_booking() {
     )
     .await;
     assert_eq!(response.into_parts().0.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_booking_request_creates_mailbox_entries_for_requester_and_provider() {
+    let article = create_article()
+        .await
+        .expect("Failed to create article for mailbox test");
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let requester_session_cookie = signup_and_get_session_cookie().await;
+    let provider_id = article
+        .created_by
+        .expect("created article should store provider");
+
+    let mut payload = create_booking_payload(13, 16);
+    payload.requested_by = Some(provider_id);
+    let booking = create_booking(article.article_id, &requester_session_cookie, &payload).await;
+    let requester_id = booking
+        .requested_by
+        .expect("created booking should store requester");
+    assert_ne!(requester_id, provider_id);
+
+    let response = request_with_session(
+        Method::GET,
+        "/mailbox?direction=sent",
+        &requester_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<Vec<MailboxEntryDto>> =
+        deserialize_json_body(body).await.unwrap();
+    let sent_entries = response_body.0.data.unwrap();
+    let sent_entry = sent_entries
+        .iter()
+        .find(|entry| entry.booking_id == Some(booking.booking_id))
+        .expect("requester mailbox should contain sent booking request");
+    assert_eq!(sent_entry.owner_id, requester_id);
+    assert_eq!(sent_entry.sender_id, requester_id);
+    assert_eq!(sent_entry.recipient_id, provider_id);
+    assert_eq!(sent_entry.direction, MailboxDirection::Sent);
+
+    let response = request_with_session(
+        Method::GET,
+        "/mailbox?direction=inbox",
+        &owner_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<Vec<MailboxEntryDto>> =
+        deserialize_json_body(body).await.unwrap();
+    let inbox_entries = response_body.0.data.unwrap();
+    let inbox_entry = inbox_entries
+        .iter()
+        .find(|entry| entry.booking_id == Some(booking.booking_id))
+        .expect("provider mailbox should contain inbox booking request");
+    assert_eq!(inbox_entry.owner_id, provider_id);
+    assert_eq!(inbox_entry.sender_id, requester_id);
+    assert_eq!(inbox_entry.recipient_id, provider_id);
+    assert_eq!(inbox_entry.direction, MailboxDirection::Inbox);
+    assert!(inbox_entry.read_at.is_none());
+
+    let response = request_with_session(
+        Method::POST,
+        &format!("/mailbox/{}/read", inbox_entry.mailbox_entry_id),
+        &owner_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<MailboxEntryDto> =
+        deserialize_json_body(body).await.unwrap();
+    let read_entry = response_body.0.data.unwrap();
+    assert!(read_entry.read_at.is_some());
 }
 
 #[tokio::test]

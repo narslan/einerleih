@@ -15,21 +15,25 @@ use crate::{
         dto::booking_dto::{BookingDto, BookingFilterDto, CreateBookingDto, UpdateBookingDto},
         infra::impl_repository::BookingRepo,
     },
+    domains::mailbox::{
+        MailboxRepo, MailboxRepository, dto::mailbox_dto::CreateBookingRequestMailboxEntriesDto,
+    },
 };
 
 #[derive(Clone)]
 pub struct BookingService {
     pub pool: Pool,
     pub repo: Arc<dyn BookingRepository + Send + Sync>,
+    pub mailbox_repo: Arc<dyn MailboxRepository + Send + Sync>,
 }
 
-fn validate_time_order(
-    start_time: chrono::DateTime<chrono::Utc>,
-    end_time: chrono::DateTime<chrono::Utc>,
+fn validate_date_order(
+    start_date: chrono::NaiveDate,
+    end_date: chrono::NaiveDate,
 ) -> Result<(), AppError> {
-    if end_time <= start_time {
+    if end_date < start_date {
         return Err(AppError::ValidationError(
-            "end_time must be after start_time".into(),
+            "end_date must be on or after start_date".into(),
         ));
     }
 
@@ -42,6 +46,7 @@ impl BookingServiceTrait for BookingService {
         Arc::new(Self {
             pool,
             repo: Arc::new(BookingRepo {}),
+            mailbox_repo: Arc::new(MailboxRepo {}),
         })
     }
 
@@ -59,8 +64,8 @@ impl BookingServiceTrait for BookingService {
             return Err(AppError::NotFound("Article not found".into()));
         }
 
-        if let (Some(start_time), Some(end_time)) = (filter.start_time, filter.end_time) {
-            validate_time_order(start_time, end_time)?;
+        if let (Some(start_date), Some(end_date)) = (filter.start_date, filter.end_date) {
+            validate_date_order(start_date, end_date)?;
         }
 
         self.repo
@@ -88,7 +93,10 @@ impl BookingServiceTrait for BookingService {
         article_id: Uuid,
         payload: CreateBookingDto,
     ) -> Result<BookingDto, AppError> {
-        validate_time_order(payload.start_time, payload.end_time)?;
+        validate_date_order(payload.start_date, payload.end_date)?;
+        let requester_id = payload
+            .requested_by
+            .ok_or_else(|| AppError::ValidationError("requested_by is required".into()))?;
 
         if !self
             .repo
@@ -105,6 +113,14 @@ impl BookingServiceTrait for BookingService {
             AppError::InternalError
         })?;
         let booking_id = Uuid::new_v4();
+        let mailbox_payload = CreateBookingRequestMailboxEntriesDto {
+            booking_id,
+            article_id,
+            requester_id,
+            requester_name: payload.requester_name.clone(),
+            note: payload.note.clone(),
+            created_by: payload.created_by,
+        };
 
         if let Err(err) = self
             .repo
@@ -112,6 +128,16 @@ impl BookingServiceTrait for BookingService {
             .await
         {
             tracing::error!("Error creating booking: {err}");
+            let _ = tx.rollback().await;
+            return Err(AppError::DatabaseError(err));
+        }
+
+        if let Err(err) = self
+            .mailbox_repo
+            .create_booking_request_entries(&mut tx, mailbox_payload)
+            .await
+        {
+            tracing::error!("Error creating mailbox entries for booking request: {err}");
             let _ = tx.rollback().await;
             return Err(AppError::DatabaseError(err));
         }
@@ -130,7 +156,7 @@ impl BookingServiceTrait for BookingService {
         booking_id: Uuid,
         payload: UpdateBookingDto,
     ) -> Result<BookingDto, AppError> {
-        validate_time_order(payload.start_time, payload.end_time)?;
+        validate_date_order(payload.start_date, payload.end_date)?;
         let existing = find_existing_booking(self, article_id, booking_id).await?;
 
         if existing.status == BookingStatus::Confirmed {
@@ -138,8 +164,8 @@ impl BookingServiceTrait for BookingService {
                 self,
                 article_id,
                 Some(booking_id),
-                payload.start_time,
-                payload.end_time,
+                payload.start_date,
+                payload.end_date,
             )
             .await?;
         }
@@ -185,8 +211,8 @@ impl BookingServiceTrait for BookingService {
             self,
             article_id,
             Some(booking_id),
-            booking.start_time,
-            booking.end_time,
+            booking.start_date,
+            booking.end_date,
         )
         .await?;
 
@@ -266,8 +292,8 @@ async fn ensure_can_confirm_booking(
     service: &BookingService,
     article_id: Uuid,
     booking_id: Option<Uuid>,
-    start_time: chrono::DateTime<chrono::Utc>,
-    end_time: chrono::DateTime<chrono::Utc>,
+    start_date: chrono::NaiveDate,
+    end_date: chrono::NaiveDate,
 ) -> Result<(), AppError> {
     if service
         .repo
@@ -275,8 +301,8 @@ async fn ensure_can_confirm_booking(
             service.pool.clone(),
             article_id,
             booking_id,
-            start_time,
-            end_time,
+            start_date,
+            end_date,
         )
         .await
         .map_err(AppError::DatabaseError)?

@@ -109,8 +109,8 @@ CREATE TABLE booking (
     requester_name VARCHAR(128),
     requester_email VARCHAR(128),
     note TEXT,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
     status VARCHAR(16) NOT NULL DEFAULT 'requested'
         CHECK (status IN ('requested', 'confirmed', 'rejected', 'cancelled', 'completed')),
     approved_by UUID REFERENCES users(id),
@@ -119,21 +119,45 @@ CREATE TABLE booking (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_by UUID,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT booking_time_order_check
-        CHECK (end_time > start_time),
+    CONSTRAINT booking_date_order_check
+        CHECK (end_date >= start_date),
     CONSTRAINT booking_confirmed_no_overlap
         EXCLUDE USING GIST (
             article_id WITH =,
-            tstzrange(start_time, end_time, '[)') WITH &&
+            daterange(start_date, end_date, '[]') WITH &&
         )
         WHERE (status = 'confirmed')
 );
 
-CREATE INDEX idx_booking_article_start_time
-    ON booking(article_id, start_time);
+CREATE INDEX idx_booking_article_start_date
+    ON booking(article_id, start_date);
 
 CREATE INDEX idx_booking_article_status
     ON booking(article_id, status);
+
+CREATE TABLE mailbox_entry (
+    mailbox_entry_id UUID PRIMARY KEY,
+    booking_id UUID REFERENCES booking(booking_id) ON DELETE CASCADE,
+    article_id UUID NOT NULL REFERENCES article(article_id) ON DELETE CASCADE,
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    direction VARCHAR(8) NOT NULL
+        CHECK (direction IN ('inbox', 'sent')),
+    subject VARCHAR(160) NOT NULL,
+    body TEXT NOT NULL,
+    read_at TIMESTAMPTZ,
+    created_by UUID,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_by UUID,
+    modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_mailbox_entry_owner_created
+    ON mailbox_entry(owner_id, created_at DESC);
+
+CREATE INDEX idx_mailbox_entry_booking_id
+    ON mailbox_entry(booking_id);
 
 CREATE TABLE user_auth (
     user_id UUID PRIMARY KEY,

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use validator::Validate;
@@ -13,10 +13,10 @@ pub struct BookingDto {
     pub requester_name: Option<String>,
     pub requester_email: Option<String>,
     pub note: Option<String>,
-    #[serde(with = "crate::common::ts_format")]
-    pub start_time: DateTime<Utc>,
-    #[serde(with = "crate::common::ts_format")]
-    pub end_time: DateTime<Utc>,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub start_date: NaiveDate,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub end_date: NaiveDate,
     pub status: BookingStatus,
     pub approved_by: Option<uuid::Uuid>,
     #[serde(with = "crate::common::ts_format::option")]
@@ -38,10 +38,10 @@ pub struct CreateBookingDto {
     #[validate(length(max = 128, message = "Requester email cannot exceed 128 characters"))]
     pub requester_email: Option<String>,
     pub note: Option<String>,
-    #[serde(with = "crate::common::ts_format")]
-    pub start_time: DateTime<Utc>,
-    #[serde(with = "crate::common::ts_format")]
-    pub end_time: DateTime<Utc>,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub start_date: NaiveDate,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub end_date: NaiveDate,
     #[serde(default)]
     pub created_by: uuid::Uuid,
     #[serde(default)]
@@ -57,20 +57,20 @@ pub struct UpdateBookingDto {
     #[validate(length(max = 128, message = "Requester email cannot exceed 128 characters"))]
     pub requester_email: Option<String>,
     pub note: Option<String>,
-    #[serde(with = "crate::common::ts_format")]
-    pub start_time: DateTime<Utc>,
-    #[serde(with = "crate::common::ts_format")]
-    pub end_time: DateTime<Utc>,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub start_date: NaiveDate,
+    #[serde(with = "crate::common::ts_format::date")]
+    pub end_date: NaiveDate,
     #[serde(default)]
     pub modified_by: uuid::Uuid,
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct BookingFilterDto {
-    #[serde(default, with = "crate::common::ts_format::option")]
-    pub start_time: Option<DateTime<Utc>>,
-    #[serde(default, with = "crate::common::ts_format::option")]
-    pub end_time: Option<DateTime<Utc>>,
+    #[serde(default, with = "crate::common::ts_format::date::option")]
+    pub start_date: Option<NaiveDate>,
+    #[serde(default, with = "crate::common::ts_format::date::option")]
+    pub end_date: Option<NaiveDate>,
     pub status: Option<BookingStatus>,
 }
 
@@ -83,8 +83,8 @@ impl From<Booking> for BookingDto {
             requester_name: value.requester_name,
             requester_email: value.requester_email,
             note: value.note,
-            start_time: value.start_time,
-            end_time: value.end_time,
+            start_date: value.start_date,
+            end_date: value.end_date,
             status: value.status,
             approved_by: value.approved_by,
             approved_at: value.approved_at,
