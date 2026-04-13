@@ -51,6 +51,27 @@ const FIND_ARTICLE_BY_ID_QUERY: &str = r#"
     where article.article_id = $1
     "#;
 
+const FIND_ARTICLES_BY_OWNER_QUERY: &str = r#"
+    select
+        article.article_id,
+        article.name,
+        article.category,
+        categories.name as category_name,
+        article.description,
+        article.town,
+        towns.name as town_name,
+        article.status,
+        article.created_by,
+        article.created_at,
+        article.modified_by,
+        article.modified_at
+    from article
+    join categories on categories.category_id = article.category
+    join towns on towns.town_id = article.town
+    where article.created_by = $1
+    order by article.created_at desc, article.article_id desc
+    "#;
+
 const CREATE_ARTICLE_QUERY: &str = r#"
             INSERT INTO article 
             (article_id, name, category, description, town, status, created_by, modified_by)
@@ -155,6 +176,13 @@ impl ArticleRepository for ArticleRepo {
         let stmt = client.prepare_cached(FIND_ARTICLE_BY_ID_QUERY).await?;
         let row = client.query_opt(&stmt, &[&id]).await?;
         Ok(row.map(|row| map_article_row(&row)))
+    }
+
+    async fn find_by_owner(&self, pool: Pool, owner_id: Uuid) -> Result<Vec<Article>, PoolError> {
+        let client = pool.get().await?;
+        let stmt = client.prepare_cached(FIND_ARTICLES_BY_OWNER_QUERY).await?;
+        let rows = client.query(&stmt, &[&owner_id]).await?;
+        Ok(rows.into_iter().map(|row| map_article_row(&row)).collect())
     }
 
     async fn find_categories(&self, pool: Pool) -> Result<Vec<ArticleRelationDto>, PoolError> {

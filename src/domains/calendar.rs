@@ -18,7 +18,7 @@ mod infra {
     pub mod impl_service;
 }
 
-pub use api::routes::{CalendarApiDoc, protected_calendar_routes};
-pub use domain::model::{CalendarBlockReason, CalendarEntrySource, CalendarEntryType};
+pub use api::routes::{CalendarApiDoc, protected_calendar_routes, user_calendar_routes};
+pub use domain::model::CalendarEntrySource;
 pub use domain::service::CalendarServiceTrait;
 pub use infra::impl_service::CalendarService;

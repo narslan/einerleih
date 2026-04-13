@@ -111,6 +111,70 @@ async fn test_regular_user_can_create_but_not_administer_booking() {
 }
 
 #[tokio::test]
+async fn test_article_owner_can_administer_booking_via_mine_routes() {
+    let article = create_article()
+        .await
+        .expect("Failed to create article for owner booking test");
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let requester_session_cookie = signup_and_get_session_cookie().await;
+
+    let booking = create_booking(
+        article.article_id,
+        &requester_session_cookie,
+        &create_booking_payload(13, 16),
+    )
+    .await;
+
+    let response = request_with_session(
+        Method::GET,
+        &format!("/article/mine/{}/bookings", article.article_id),
+        &owner_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<Vec<BookingDto>> =
+        deserialize_json_body(body).await.unwrap();
+    let bookings = response_body.0.data.unwrap();
+    assert!(
+        bookings
+            .iter()
+            .any(|item| item.booking_id == booking.booking_id)
+    );
+
+    let response = request_with_session(
+        Method::POST,
+        &format!(
+            "/article/mine/{}/bookings/{}/confirm",
+            article.article_id, booking.booking_id
+        ),
+        &owner_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    let response_body: RestApiResponse<BookingDto> = deserialize_json_body(body).await.unwrap();
+    assert_eq!(
+        parts.status,
+        StatusCode::OK,
+        "unexpected owner confirm response: {:?}",
+        response_body.0
+    );
+    let confirmed = response_body.0.data.unwrap();
+    assert_eq!(confirmed.status, BookingStatus::Confirmed);
+
+    let response = request_with_session(
+        Method::POST,
+        &format!(
+            "/article/mine/{}/bookings/{}/cancel",
+            article.article_id, booking.booking_id
+        ),
+        &requester_session_cookie,
+    )
+    .await;
+    assert_eq!(response.into_parts().0.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
 async fn test_create_confirm_and_list_booking() {
     let article = create_article()
         .await

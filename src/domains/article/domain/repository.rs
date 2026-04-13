@@ -20,6 +20,9 @@ pub trait ArticleRepository: Send + Sync {
     /// Finds a article by its unique identifier.
     async fn find_by_id(&self, pool: Pool, id: Uuid) -> Result<Option<Article>, PoolError>;
 
+    /// Retrieves articles owned by the given user.
+    async fn find_by_owner(&self, pool: Pool, owner_id: Uuid) -> Result<Vec<Article>, PoolError>;
+
     /// Returns available categories for article assignment.
     async fn find_categories(&self, pool: Pool) -> Result<Vec<ArticleRelationDto>, PoolError>;
 

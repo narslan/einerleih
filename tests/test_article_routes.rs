@@ -17,7 +17,7 @@ mod test_helpers;
 use test_helpers::{
     TEST_AUTH_USER_ID, TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body,
     login_and_get_session_cookie, request, request_with_session, request_with_session_body,
-    request_with_session_raw,
+    request_with_session_raw, signup_and_get_session_cookie,
 };
 
 async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
@@ -321,6 +321,69 @@ async fn test_create_article_with_picture_and_fetch_file() {
         uploaded_file.created_by,
         Some(uuid::Uuid::parse_str(TEST_AUTH_USER_ID).unwrap())
     );
+}
+
+#[tokio::test]
+async fn test_regular_user_can_create_and_list_own_article() {
+    let session_cookie = signup_and_get_session_cookie().await;
+    let (boundary, payload) =
+        build_multipart_article_request_with_photos(&[("meins.png", "image/png", b"mine")], None);
+
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article/mine/upload",
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        payload,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    let response_body: RestApiResponse<CreateArticleWithPicturesResponseDto> =
+        deserialize_json_body(body).await.unwrap();
+    assert_eq!(parts.status, StatusCode::OK, "{:?}", response_body.0);
+    let created = response_body.0.data.unwrap();
+
+    let response = request_with_session(Method::GET, "/article/mine", &session_cookie).await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+
+    let response_body: RestApiResponse<Vec<ArticleDto>> =
+        deserialize_json_body(body).await.unwrap();
+    let articles = response_body.0.data.unwrap();
+    assert!(
+        articles
+            .iter()
+            .any(|article| article.article_id == created.article.article_id),
+        "created article should be listed under /article/mine"
+    );
+}
+
+#[tokio::test]
+async fn test_regular_user_cannot_update_someone_elses_article() {
+    let created = create_article_with_picture().await;
+    let session_cookie = signup_and_get_session_cookie().await;
+    let boundary = format!("boundary-{}", uuid::Uuid::new_v4().simple());
+    let mut body = Vec::new();
+    append_multipart_text_part(&mut body, &boundary, "name", "fremd");
+    append_multipart_text_part(&mut body, &boundary, "category", TEST_CATEGORY_ID);
+    append_multipart_text_part(&mut body, &boundary, "description", "Fremder Artikel");
+    append_multipart_text_part(&mut body, &boundary, "town", TEST_TOWN_ID);
+    append_multipart_text_part(&mut body, &boundary, "status", "aktiv");
+    append_multipart_text_part(&mut body, &boundary, "existing_pictures", "[]");
+    append_multipart_text_part(&mut body, &boundary, "delete_file_ids", "[]");
+    append_multipart_text_part(&mut body, &boundary, "new_picture_meta", "[]");
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
+    let response = request_with_session_raw(
+        Method::PUT,
+        &format!("/article/mine/{}/upload", created.article.article_id),
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        body,
+    )
+    .await;
+
+    assert_eq!(response.into_parts().0.status, StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]

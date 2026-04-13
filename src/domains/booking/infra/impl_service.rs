@@ -271,17 +271,6 @@ async fn ensure_can_confirm_booking(
 ) -> Result<(), AppError> {
     if service
         .repo
-        .has_calendar_block_conflict(service.pool.clone(), article_id, start_time, end_time)
-        .await
-        .map_err(AppError::DatabaseError)?
-    {
-        return Err(AppError::ValidationError(
-            "Booking overlaps a calendar block".into(),
-        ));
-    }
-
-    if service
-        .repo
         .has_confirmed_booking_conflict(
             service.pool.clone(),
             article_id,

@@ -37,7 +37,33 @@ use utoipa::OpenApi;
 pub struct BookingApiDoc;
 
 pub fn user_booking_routes() -> Router<AppState> {
-    Router::new().route("/{article_id}/bookings", post(create_booking))
+    Router::new()
+        .route("/{article_id}/bookings", post(create_booking))
+        .route("/mine/{article_id}/bookings", get(get_own_bookings))
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}",
+            get(get_own_booking),
+        )
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}",
+            put(update_own_booking),
+        )
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}/confirm",
+            post(confirm_own_booking),
+        )
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}/reject",
+            post(reject_own_booking),
+        )
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}/cancel",
+            post(cancel_own_booking),
+        )
+        .route(
+            "/mine/{article_id}/bookings/{booking_id}/complete",
+            post(complete_own_booking),
+        )
 }
 
 pub fn admin_booking_routes() -> Router<AppState> {

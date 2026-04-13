@@ -21,7 +21,9 @@ mod infra {
 }
 
 // Re-export commonly used items for convenience
-pub use api::routes::{ArticleApiDoc, protected_article_routes, public_article_routes};
+pub use api::routes::{
+    ArticleApiDoc, protected_article_routes, public_article_routes, user_article_routes,
+};
 pub use domain::model::ArticleStatus;
 pub use domain::service::ArticleServiceTrait;
 pub use domain::workflow::ArticleWorkflowServiceTrait;

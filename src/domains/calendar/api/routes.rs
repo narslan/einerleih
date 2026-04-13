@@ -2,7 +2,7 @@ use super::handlers::*;
 use crate::{
     common::app_state::AppState,
     domains::calendar::{
-        domain::model::{CalendarBlockReason, CalendarEntrySource, CalendarEntryType},
+        domain::model::CalendarEntrySource,
         dto::calendar_dto::{CalendarEntryDto, CreateCalendarEntryDto, UpdateCalendarEntryDto},
     },
 };
@@ -22,10 +22,8 @@ use utoipa::OpenApi;
         delete_calendar_entry,
     ),
     components(schemas(
-        CalendarBlockReason,
         CalendarEntryDto,
         CalendarEntrySource,
-        CalendarEntryType,
         CreateCalendarEntryDto,
         UpdateCalendarEntryDto,
     )),
@@ -47,5 +45,26 @@ pub fn protected_calendar_routes() -> Router<AppState> {
         .route(
             "/{article_id}/calendar/{event_id}",
             delete(delete_calendar_entry),
+        )
+}
+
+pub fn user_calendar_routes() -> Router<AppState> {
+    Router::new()
+        .route("/mine/{article_id}/calendar", get(get_own_calendar_entries))
+        .route(
+            "/mine/{article_id}/calendar",
+            post(create_own_calendar_entry),
+        )
+        .route(
+            "/mine/{article_id}/calendar/{event_id}",
+            get(get_own_calendar_entry),
+        )
+        .route(
+            "/mine/{article_id}/calendar/{event_id}",
+            put(update_own_calendar_entry),
+        )
+        .route(
+            "/mine/{article_id}/calendar/{event_id}",
+            delete(delete_own_calendar_entry),
         )
 }

@@ -118,9 +118,7 @@ async fn test_logout_user() {
 #[tokio::test]
 async fn test_regular_user_cannot_access_admin_route() {
     let session_cookie = test_helpers::signup_and_get_session_cookie().await;
-    let response =
-        test_helpers::request_with_session(Method::GET, "/article/categories", &session_cookie)
-            .await;
+    let response = test_helpers::request_with_session(Method::GET, "/user", &session_cookie).await;
     let (parts, _) = response.into_parts();
 
     assert_eq!(parts.status, StatusCode::FORBIDDEN);

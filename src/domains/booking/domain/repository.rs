@@ -20,14 +20,6 @@ pub trait BookingRepository: Send + Sync {
         end_time: chrono::DateTime<chrono::Utc>,
     ) -> Result<bool, PoolError>;
 
-    async fn has_calendar_block_conflict(
-        &self,
-        pool: Pool,
-        article_id: Uuid,
-        start_time: chrono::DateTime<chrono::Utc>,
-        end_time: chrono::DateTime<chrono::Utc>,
-    ) -> Result<bool, PoolError>;
-
     async fn find_by_article_id(
         &self,
         pool: Pool,

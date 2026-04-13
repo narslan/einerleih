@@ -28,6 +28,12 @@ pub trait ArticleServiceTrait: Send + Sync {
     /// Retrieves a list of all articles.
     async fn get_articles(&self) -> Result<Vec<ArticleDto>, AppError>;
 
+    /// Retrieves articles owned by the given user.
+    async fn get_articles_by_owner(
+        &self,
+        owner_id: uuid::Uuid,
+    ) -> Result<Vec<ArticleDto>, AppError>;
+
     /// Retrieves selectable categories for article forms.
     async fn get_categories(&self) -> Result<Vec<ArticleRelationDto>, AppError>;
 

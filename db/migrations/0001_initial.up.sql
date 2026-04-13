@@ -84,16 +84,10 @@ CREATE INDEX idx_uploaded_files_article_id ON uploaded_files(article_id);
 CREATE TABLE event_calendar (
     event_id UUID PRIMARY KEY,
     article_id UUID NOT NULL REFERENCES article(article_id) ON DELETE CASCADE,
-    entry_type VARCHAR(16) NOT NULL
-        CHECK (entry_type IN ('availability', 'block')),
-    block_reason VARCHAR(16)
-        CHECK (block_reason IN ('vacation', 'repair')),
-    summary VARCHAR(255) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
     location VARCHAR(255),
     description TEXT,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    rrule TEXT,
     dtstamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     source VARCHAR(16) NOT NULL DEFAULT 'manual'
         CHECK (source IN ('manual', 'import', 'system')),
@@ -101,21 +95,12 @@ CREATE TABLE event_calendar (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_by UUID,
     modified_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT event_calendar_time_order_check
-        CHECK (end_time > start_time),
-    CONSTRAINT event_calendar_block_reason_semantics_check
-        CHECK (
-            (entry_type = 'availability' AND block_reason IS NULL)
-            OR
-            (entry_type = 'block' AND block_reason IN ('vacation', 'repair'))
-        )
+    CONSTRAINT event_calendar_date_order_check
+        CHECK (end_date >= start_date)
 );
 
-CREATE INDEX idx_event_calendar_article_start_time
-    ON event_calendar(article_id, start_time);
-
-CREATE INDEX idx_event_calendar_article_end_time
-    ON event_calendar(article_id, end_time);
+CREATE INDEX idx_event_calendar_article_start_date
+    ON event_calendar(article_id, start_date);
 
 CREATE TABLE booking (
     booking_id UUID PRIMARY KEY,

@@ -33,16 +33,6 @@ const CONFIRMED_BOOKING_CONFLICT_QUERY: &str = r#"
     )
     "#;
 
-const CALENDAR_BLOCK_CONFLICT_QUERY: &str = r#"
-    SELECT EXISTS(
-        SELECT 1
-        FROM event_calendar
-        WHERE article_id = $1
-            AND entry_type = 'block'
-            AND tstzrange(start_time, end_time, '[)') && tstzrange($2::TIMESTAMPTZ, $3::TIMESTAMPTZ, '[)')
-    )
-    "#;
-
 const FIND_BY_ARTICLE_ID_QUERY: &str = r#"
     SELECT
         booking_id,
@@ -212,21 +202,6 @@ impl BookingRepository for BookingRepo {
             .await?;
         let row = client
             .query_one(&stmt, &[&article_id, &booking_id, &start_time, &end_time])
-            .await?;
-        Ok(row.get(0))
-    }
-
-    async fn has_calendar_block_conflict(
-        &self,
-        pool: Pool,
-        article_id: Uuid,
-        start_time: DateTime<Utc>,
-        end_time: DateTime<Utc>,
-    ) -> Result<bool, PoolError> {
-        let client = pool.get().await?;
-        let stmt = client.prepare_cached(CALENDAR_BLOCK_CONFLICT_QUERY).await?;
-        let row = client
-            .query_one(&stmt, &[&article_id, &start_time, &end_time])
             .await?;
         Ok(row.get(0))
     }

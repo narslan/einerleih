@@ -1,5 +1,5 @@
 use axum::http::{Method, StatusCode};
-use chrono::{TimeZone, Utc};
+use chrono::NaiveDate;
 
 use einerleih::{
     common::{dto::RestApiResponse, error::AppError},
@@ -9,7 +9,7 @@ use einerleih::{
             dto::article_dto::{ArticleDto, CreateArticleDto},
         },
         calendar::{
-            CalendarBlockReason, CalendarEntrySource, CalendarEntryType,
+            CalendarEntrySource,
             dto::calendar_dto::{CalendarEntryDto, CreateCalendarEntryDto},
         },
     },
@@ -19,7 +19,7 @@ mod test_helpers;
 
 use test_helpers::{
     TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_session_cookie,
-    request_with_session, request_with_session_body,
+    request_with_session, request_with_session_body, signup_and_get_session_cookie,
 };
 
 async fn create_article() -> Result<ArticleDto, AppError> {
@@ -50,16 +50,12 @@ async fn create_article() -> Result<ArticleDto, AppError> {
     Ok(response_body.0.data.unwrap())
 }
 
-fn create_availability_entry_payload() -> CreateCalendarEntryDto {
+fn create_calendar_entry_payload() -> CreateCalendarEntryDto {
     CreateCalendarEntryDto {
-        entry_type: CalendarEntryType::Availability,
-        block_reason: None,
-        summary: "Buchbar am Vormittag".to_string(),
+        start_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+        end_date: NaiveDate::from_ymd_opt(2026, 5, 3).unwrap(),
         location: Some("Abholung im Laden".to_string()),
-        description: Some("Regulaeres Verfuegbarkeitsfenster".to_string()),
-        start_time: Utc.with_ymd_and_hms(2026, 5, 1, 8, 0, 0).unwrap(),
-        end_time: Utc.with_ymd_and_hms(2026, 5, 1, 12, 0, 0).unwrap(),
-        rrule: None,
+        description: Some("Regulaerer Kalendereintrag".to_string()),
         source: CalendarEntrySource::Manual,
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
@@ -72,7 +68,7 @@ async fn test_create_and_list_article_calendar_entry() {
         .await
         .expect("Failed to create article for calendar test");
     let session_cookie = login_and_get_session_cookie().await;
-    let payload = create_availability_entry_payload();
+    let payload = create_calendar_entry_payload();
 
     let response = request_with_session_body(
         Method::POST,
@@ -88,9 +84,11 @@ async fn test_create_and_list_article_calendar_entry() {
         deserialize_json_body(body).await.unwrap();
     let created_entry = response_body.0.data.unwrap();
     assert_eq!(created_entry.article_id, article.article_id);
-    assert_eq!(created_entry.entry_type, CalendarEntryType::Availability);
-    assert_eq!(created_entry.block_reason, None);
-    assert_eq!(created_entry.summary, payload.summary);
+    assert_eq!(created_entry.start_date, payload.start_date);
+    assert_eq!(created_entry.end_date, payload.end_date);
+    assert_eq!(created_entry.location, payload.location);
+    assert_eq!(created_entry.description, payload.description);
+    assert_eq!(created_entry.source, CalendarEntrySource::Manual);
 
     let response = request_with_session(
         Method::GET,
@@ -112,13 +110,65 @@ async fn test_create_and_list_article_calendar_entry() {
 }
 
 #[tokio::test]
-async fn test_rejects_invalid_calendar_entry_semantics() {
+async fn test_article_owner_can_manage_calendar_via_mine_routes() {
+    let article = create_article()
+        .await
+        .expect("Failed to create article for owner calendar test");
+    let owner_session_cookie = login_and_get_session_cookie().await;
+    let other_session_cookie = signup_and_get_session_cookie().await;
+    let payload = create_calendar_entry_payload();
+
+    let response = request_with_session_body(
+        Method::POST,
+        &format!("/article/mine/{}/calendar", article.article_id),
+        &owner_session_cookie,
+        &payload,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<CalendarEntryDto> =
+        deserialize_json_body(body).await.unwrap();
+    let created_entry = response_body.0.data.unwrap();
+
+    let response = request_with_session(
+        Method::GET,
+        &format!("/article/mine/{}/calendar", article.article_id),
+        &owner_session_cookie,
+    )
+    .await;
+    let (parts, body) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+    let response_body: RestApiResponse<Vec<CalendarEntryDto>> =
+        deserialize_json_body(body).await.unwrap();
+    let entries = response_body.0.data.unwrap();
+    assert!(
+        entries
+            .iter()
+            .any(|entry| entry.event_id == created_entry.event_id)
+    );
+
+    let response = request_with_session(
+        Method::DELETE,
+        &format!(
+            "/article/mine/{}/calendar/{}",
+            article.article_id, created_entry.event_id
+        ),
+        &other_session_cookie,
+    )
+    .await;
+    assert_eq!(response.into_parts().0.status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_rejects_invalid_calendar_date_range() {
     let article = create_article()
         .await
         .expect("Failed to create article for calendar test");
     let session_cookie = login_and_get_session_cookie().await;
-    let mut payload = create_availability_entry_payload();
-    payload.block_reason = Some(CalendarBlockReason::Repair);
+    let mut payload = create_calendar_entry_payload();
+    payload.start_date = NaiveDate::from_ymd_opt(2026, 5, 3).unwrap();
+    payload.end_date = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
 
     let response = request_with_session_body(
         Method::POST,

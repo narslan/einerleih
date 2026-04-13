@@ -7,11 +7,7 @@ use uuid::Uuid;
 use crate::{
     common::error::AppError,
     domains::calendar::{
-        domain::{
-            model::{CalendarBlockReason, CalendarEntryType},
-            repository::CalendarRepository,
-            service::CalendarServiceTrait,
-        },
+        domain::{repository::CalendarRepository, service::CalendarServiceTrait},
         dto::calendar_dto::{
             CalendarEntryDto, CalendarEntryFilterDto, CreateCalendarEntryDto,
             UpdateCalendarEntryDto,
@@ -26,29 +22,13 @@ pub struct CalendarService {
     pub repo: Arc<dyn CalendarRepository + Send + Sync>,
 }
 
-fn validate_entry_semantics(
-    entry_type: &CalendarEntryType,
-    block_reason: &Option<CalendarBlockReason>,
+fn validate_date_order(
+    start_date: chrono::NaiveDate,
+    end_date: chrono::NaiveDate,
 ) -> Result<(), AppError> {
-    match (entry_type, block_reason) {
-        (CalendarEntryType::Availability, None) => Ok(()),
-        (CalendarEntryType::Availability, Some(_)) => Err(AppError::ValidationError(
-            "block_reason must be empty for availability entries".into(),
-        )),
-        (CalendarEntryType::Block, Some(_)) => Ok(()),
-        (CalendarEntryType::Block, None) => Err(AppError::ValidationError(
-            "block_reason is required for block entries".into(),
-        )),
-    }
-}
-
-fn validate_time_order(
-    start_time: chrono::DateTime<chrono::Utc>,
-    end_time: chrono::DateTime<chrono::Utc>,
-) -> Result<(), AppError> {
-    if end_time <= start_time {
+    if end_date < start_date {
         return Err(AppError::ValidationError(
-            "end_time must be after start_time".into(),
+            "end_date must be on or after start_date".into(),
         ));
     }
 
@@ -78,8 +58,8 @@ impl CalendarServiceTrait for CalendarService {
             return Err(AppError::NotFound("Article not found".into()));
         }
 
-        if let (Some(start_time), Some(end_time)) = (filter.start_time, filter.end_time) {
-            validate_time_order(start_time, end_time)?;
+        if let (Some(start_date), Some(end_date)) = (filter.start_date, filter.end_date) {
+            validate_date_order(start_date, end_date)?;
         }
 
         self.repo
@@ -107,8 +87,7 @@ impl CalendarServiceTrait for CalendarService {
         article_id: Uuid,
         payload: CreateCalendarEntryDto,
     ) -> Result<CalendarEntryDto, AppError> {
-        validate_entry_semantics(&payload.entry_type, &payload.block_reason)?;
-        validate_time_order(payload.start_time, payload.end_time)?;
+        validate_date_order(payload.start_date, payload.end_date)?;
 
         if !self
             .repo
@@ -150,8 +129,7 @@ impl CalendarServiceTrait for CalendarService {
         event_id: Uuid,
         payload: UpdateCalendarEntryDto,
     ) -> Result<CalendarEntryDto, AppError> {
-        validate_entry_semantics(&payload.entry_type, &payload.block_reason)?;
-        validate_time_order(payload.start_time, payload.end_time)?;
+        validate_date_order(payload.start_date, payload.end_date)?;
 
         let mut client = self.pool.get().await.map_err(AppError::DatabaseError)?;
         let mut tx = client.transaction().await.map_err(|err| {

@@ -103,6 +103,27 @@ impl ArticleServiceTrait for ArticleService {
         }
     }
 
+    async fn get_articles_by_owner(&self, owner_id: Uuid) -> Result<Vec<ArticleDto>, AppError> {
+        match self.repo.find_by_owner(self.pool.clone(), owner_id).await {
+            Ok(articles) => {
+                let mut article_dtos: Vec<ArticleDto> = Vec::with_capacity(articles.len());
+                for article in articles {
+                    let pictures = self
+                        .file_repo
+                        .find_by_article_id(self.pool.clone(), article.article_id)
+                        .await
+                        .map_err(AppError::DatabaseError)?;
+                    article_dtos.push(ArticleDto::from_article_with_pictures(article, pictures));
+                }
+                Ok(article_dtos)
+            }
+            Err(err) => {
+                tracing::error!("Error fetching owner articles: {err}");
+                Err(AppError::DatabaseError(err))
+            }
+        }
+    }
+
     async fn get_categories(&self) -> Result<Vec<ArticleRelationDto>, AppError> {
         self.repo
             .find_categories(self.pool.clone())

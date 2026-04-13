@@ -22,10 +22,12 @@ use tower_http::{
 use crate::{
     common::{app_state::AppState, error::handle_error, session_auth},
     domains::{
-        article::{ArticleApiDoc, protected_article_routes, public_article_routes},
+        article::{
+            ArticleApiDoc, protected_article_routes, public_article_routes, user_article_routes,
+        },
         auth::{UserAuthApiDoc, user_auth_routes},
         booking::{BookingApiDoc, admin_booking_routes, user_booking_routes},
-        calendar::{CalendarApiDoc, protected_calendar_routes},
+        calendar::{CalendarApiDoc, protected_calendar_routes, user_calendar_routes},
         file::{FileApiDoc, protected_file_routes, public_file_routes},
         user::{UserApiDoc, user_routes},
     },
@@ -84,7 +86,12 @@ pub fn create_router(state: AppState) -> Router {
 
     // Routes for regular authenticated users.
     let session_routes = Router::new()
-        .nest("/article", user_booking_routes())
+        .nest(
+            "/article",
+            user_article_routes()
+                .merge(user_booking_routes())
+                .merge(user_calendar_routes()),
+        )
         .route_layer(middleware::from_fn(session_auth::require_session))
         .layer(middleware::from_fn(make_request_response_inspecter(true)));
 
