@@ -12,10 +12,8 @@ use utoipa::OpenApi;
         super::handlers::login_user,
         super::handlers::logout_user,
         super::handlers::sign_up_user,
-        super::handlers::create_user_auth,
     ),
     components(schemas(
-        crate::domains::auth::dto::auth_dto::AuthUserDto,
         crate::domains::auth::dto::auth_dto::AuthPayload,
         crate::domains::auth::dto::auth_dto::SignUpDto,
         crate::domains::auth::dto::auth_dto::AuthSessionDto,
@@ -34,5 +32,4 @@ pub fn user_auth_routes() -> Router<AppState> {
         .route("/login", post(handlers::login_user))
         .route("/logout", post(handlers::logout_user))
         .route("/signup", post(handlers::sign_up_user))
-        .route("/register", post(handlers::create_user_auth))
 }

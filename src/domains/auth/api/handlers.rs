@@ -14,23 +14,6 @@ use axum::extract::State;
 use axum::{Json, response::IntoResponse};
 use validator::Validate;
 
-/// this function creates a router for creating user authentication registration
-/// it will create a new user in the database
-#[utoipa::path(
-    post,
-    path = "/auth/register",
-    request_body = AuthUserDto,
-    responses((status = 200, description = "Create user authentication", body = AuthUserDto)),
-    tag = "UserAuth"
-)]
-pub async fn create_user_auth(
-    State(state): State<AppState>,
-    Json(payload): Json<AuthUserDto>,
-) -> Result<impl IntoResponse, AppError> {
-    state.auth_service.create_user_auth(payload).await?;
-    Ok(RestApiResponse::success(()))
-}
-
 #[utoipa::path(
     post,
     path = "/auth/signup",
