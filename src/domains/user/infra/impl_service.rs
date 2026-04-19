@@ -7,7 +7,8 @@ use crate::{
     },
 };
 use async_trait::async_trait;
-use deadpool_postgres::Pool;
+use deadpool_postgres::{Pool, PoolError};
+use tokio_postgres::error::SqlState;
 
 use std::sync::Arc;
 use uuid::Uuid;
@@ -19,6 +20,19 @@ use uuid::Uuid;
 pub struct UserService {
     pub pool: Pool,
     pub repo: Arc<dyn UserRepository + Send + Sync>,
+}
+
+fn map_create_user_error(err: PoolError) -> AppError {
+    if let PoolError::Backend(db_err) = &err {
+        if let Some(db_error) = db_err.as_db_error()
+            && db_error.code() == &SqlState::UNIQUE_VIOLATION
+            && db_error.constraint() == Some("users_username_key")
+        {
+            return AppError::Conflict("Username is already taken".into());
+        }
+    }
+
+    AppError::DatabaseError(err)
 }
 
 #[async_trait]
@@ -85,7 +99,7 @@ impl UserServiceTrait for UserService {
             Ok(user_id) => user_id,
             Err(err) => {
                 tracing::error!("Error creating user: {err}");
-                return Err(AppError::DatabaseError(err));
+                return Err(map_create_user_error(err));
             }
         };
 

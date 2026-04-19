@@ -96,6 +96,35 @@ async fn test_signup_user() {
 }
 
 #[tokio::test]
+async fn test_signup_user_duplicate_username() {
+    let unique = uuid::Uuid::new_v4().simple().to_string();
+    let username = format!("user-{unique}");
+    let payload = serde_json::json!({
+        "username": username,
+        "email": format!("user-{unique}@example.com"),
+        "password": "test_password"
+    });
+
+    let response = request_with_body(Method::POST, "/auth/signup", &payload).await;
+    let (parts, _) = response.into_parts();
+    assert_eq!(parts.status, StatusCode::OK);
+
+    let duplicate_payload = serde_json::json!({
+        "username": username,
+        "email": format!("other-{unique}@example.com"),
+        "password": "test_password"
+    });
+    let response = request_with_body(Method::POST, "/auth/signup", &duplicate_payload).await;
+    let (parts, body) = response.into_parts();
+
+    assert_eq!(parts.status, StatusCode::CONFLICT);
+
+    let response_body: RestApiResponse<()> = deserialize_json_body(body).await.unwrap();
+    assert_eq!(response_body.0.status, StatusCode::CONFLICT);
+    assert_eq!(response_body.0.message, "Username is already taken");
+}
+
+#[tokio::test]
 async fn test_logout_user() {
     let session_cookie = test_helpers::login_and_get_session_cookie().await;
     let response =
