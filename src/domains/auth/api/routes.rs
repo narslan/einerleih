@@ -1,5 +1,8 @@
 use crate::common::app_state::AppState;
-use axum::{Router, routing::post};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 
 use super::handlers;
 
@@ -12,6 +15,7 @@ use utoipa::OpenApi;
         super::handlers::login_user,
         super::handlers::logout_user,
         super::handlers::sign_up_user,
+        super::handlers::session,
     ),
     components(schemas(
         crate::domains::auth::dto::auth_dto::AuthPayload,
@@ -32,4 +36,5 @@ pub fn user_auth_routes() -> Router<AppState> {
         .route("/login", post(handlers::login_user))
         .route("/logout", post(handlers::logout_user))
         .route("/signup", post(handlers::sign_up_user))
+        .route("/session", get(handlers::session))
 }

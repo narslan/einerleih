@@ -8,7 +8,7 @@ Nutzende kännen ohne Registrierung den Katalog durchsuchen und die Verfügbarke
 Das Projekt hat zwei zentrale Säulen:
 
 - **Nutzer-Oberfläche**: Katalog + Informationsseiten (FAQ, Über Uns, Kontakt)
-- **Admin-Oberfläche**: Verwaltung von Inhalten (z.B. Artikel, Zeitrahmen) 
+- **Admin-Oberfläche**: Verwaltung von Inhalten (z.B. Artikel, Zeitrahmen)
 
 Die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Frontend.
 
@@ -17,7 +17,7 @@ Die Idee: ein schlankes Rust/Axum Backend (REST-API) und ein separates Lit-Front
 ### Voraussetzungen
 
 - Rust/Axum (für Admin/REST-API)
-- PostgreSQL 
+- PostgreSQL
 - Node.js + `pnpm` (für das Frontend, welches sich in einem anderen [Repo](https://github.com/narslan/einerleih_ui) befindet)
 
 ### Datenbankmigrationen
@@ -63,3 +63,8 @@ BOOTSTRAP_ADMIN_PASSWORD=<starkes-passwort>
 ```
 
 Das Passwort wird nicht gespeichert, sondern beim Start gehasht. Sobald wir eine endgültige Admin-Verwaltung haben, sollten diese Variablen wieder entfernt werden.
+
+TODOS:
+
+- Für Session Store einen persistenten Store verwenden statt in memory storage, z.B.:
+- PostgreSQL-backed session store

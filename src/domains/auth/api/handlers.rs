@@ -120,6 +120,28 @@ pub async fn logout_user(mut auth_session: AuthSession) -> Result<impl IntoRespo
     Ok(RestApiResponse::success(()))
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/session",
+    responses((status = 200, description = "Session status of user")),
+    tag = "UserAuth"
+)]
+pub async fn session(
+    State(state): State<AppState>,
+    auth_session: AuthSession,
+) -> Result<impl IntoResponse, AppError> {
+    let Some(session_user) = auth_session.user else {
+        return Err(AppError::Unauthorized);
+    };
+
+    let user = state.user_service.get_user_by_id(session_user.id).await?;
+
+    Ok(RestApiResponse::success(AuthSessionDto {
+        user,
+        roles: roles_from_session_user(&session_user),
+    }))
+}
+
 fn roles_from_session_user(user: &SessionUser) -> Vec<String> {
     let mut roles: Vec<String> = user.roles.iter().cloned().collect();
     roles.sort();
