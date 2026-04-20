@@ -15,54 +15,65 @@ use einerleih::{
 mod test_helpers;
 
 use test_helpers::{
-    TEST_AUTH_USER_ID, TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body,
-    login_and_get_session_cookie, request, request_with_session, request_with_session_body,
-    request_with_session_raw, signup_and_get_session_cookie,
+    TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_session_cookie, request,
+    request_with_session, request_with_session_raw, signup_and_get_session_cookie,
 };
 
-async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
+fn test_article_payload(prefix: &str, tags: Vec<String>) -> CreateArticleDto {
     let uuid_text = uuid::Uuid::new_v4().simple().to_string();
     let short_id = &uuid_text[..8];
-    let payload = CreateArticleDto {
-        name: format!("art-{short_id}"),
+
+    CreateArticleDto {
+        name: format!("{prefix}-{short_id}"),
         category: uuid::Uuid::parse_str(TEST_CATEGORY_ID).unwrap(),
         description: "Ein Testartikel fuer die API-Tests".to_string(),
         town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
         status: ArticleStatus::Aktiv,
-        tags: Vec::new(),
+        tags,
         created_by: uuid::Uuid::nil(),
         modified_by: uuid::Uuid::nil(),
-    };
+    }
+}
 
-    let session_cookie = login_and_get_session_cookie().await;
-    let response =
-        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
+async fn create_article() -> Result<(CreateArticleDto, ArticleDto), AppError> {
+    let payload = test_article_payload("art", Vec::new());
+    let (boundary, request_body) = build_multipart_article_request(&payload, &[], None);
+
+    let session_cookie = signup_and_get_session_cookie().await;
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article/mine/upload",
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        request_body,
+    )
+    .await;
     let (parts, body) = response.into_parts();
-    let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<CreateArticleWithPicturesResponseDto> =
+        deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
         panic!(
-            "expected 200 from POST /article, got {} with body {:?}",
+            "expected 200 from POST /article/mine/upload, got {} with body {:?}",
             parts.status, response_body.0
         );
     }
-    let article_dto = response_body.0.data.unwrap();
+    let article_dto = response_body.0.data.unwrap().article;
 
     Ok((payload, article_dto))
 }
 
-fn build_multipart_article_request_with_photos(
+fn build_multipart_article_request(
+    payload: &CreateArticleDto,
     photos: &[(&str, &str, &[u8])],
     new_picture_meta: Option<serde_json::Value>,
 ) -> (String, Vec<u8>) {
     let boundary = format!("boundary-{}", uuid::Uuid::new_v4().simple());
-    let uuid_text = uuid::Uuid::new_v4().simple().to_string();
-    let short_id = &uuid_text[..8];
     let fields = [
-        ("name", format!("art-{short_id}")),
-        ("category", TEST_CATEGORY_ID.to_string()),
-        ("description", "Artikel mit Bild".to_string()),
-        ("town", TEST_TOWN_ID.to_string()),
-        ("status", "aktiv".to_string()),
+        ("name", payload.name.clone()),
+        ("category", payload.category.to_string()),
+        ("description", payload.description.clone()),
+        ("town", payload.town.to_string()),
+        ("status", payload.status.as_str().to_string()),
     ];
 
     let mut body = Vec::new();
@@ -73,6 +84,15 @@ fn build_multipart_article_request_with_photos(
         );
         body.extend_from_slice(value.as_bytes());
         body.extend_from_slice(b"\r\n");
+    }
+
+    if !payload.tags.is_empty() {
+        append_multipart_text_part(
+            &mut body,
+            &boundary,
+            "tags",
+            &serde_json::to_string(&payload.tags).unwrap(),
+        );
     }
 
     if let Some(new_picture_meta) = new_picture_meta {
@@ -97,6 +117,14 @@ fn build_multipart_article_request_with_photos(
     body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
     (boundary, body)
+}
+
+fn build_multipart_article_request_with_photos(
+    photos: &[(&str, &str, &[u8])],
+    new_picture_meta: Option<serde_json::Value>,
+) -> (String, Vec<u8>) {
+    let payload = test_article_payload("art", Vec::new());
+    build_multipart_article_request(&payload, photos, new_picture_meta)
 }
 
 fn append_multipart_text_part(body: &mut Vec<u8>, boundary: &str, name: &str, value: &str) {
@@ -130,12 +158,12 @@ async fn create_article_with_pictures(
     photos: &[(&str, &str, &[u8])],
     new_picture_meta: Option<serde_json::Value>,
 ) -> CreateArticleWithPicturesResponseDto {
-    let session_cookie = login_and_get_session_cookie().await;
+    let session_cookie = signup_and_get_session_cookie().await;
     let (boundary, payload) = build_multipart_article_request_with_photos(photos, new_picture_meta);
 
     let response = request_with_session_raw(
         Method::POST,
-        "/article/upload",
+        "/article/mine/upload",
         &session_cookie,
         &format!("multipart/form-data; boundary={boundary}"),
         payload,
@@ -146,7 +174,7 @@ async fn create_article_with_pictures(
         deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
         panic!(
-            "expected 200 from POST /article/upload, got {} with body {:?}",
+            "expected 200 from POST /article/mine/upload, got {} with body {:?}",
             parts.status, response_body.0
         );
     }
@@ -172,43 +200,37 @@ async fn test_create_article() {
     assert_eq!(article_dto.status, ArticleStatus::Aktiv);
     assert!(article_dto.cover_image.is_none());
     assert!(article_dto.pictures.is_empty());
-    assert_eq!(
-        article_dto.created_by,
-        Some(uuid::Uuid::parse_str(TEST_AUTH_USER_ID).unwrap())
-    );
-    assert_eq!(
-        article_dto.modified_by,
-        Some(uuid::Uuid::parse_str(TEST_AUTH_USER_ID).unwrap())
-    );
+    assert!(article_dto.created_by.is_some());
+    assert_eq!(article_dto.modified_by, article_dto.created_by);
 }
 
 #[tokio::test]
 async fn test_create_article_with_user_tags() {
-    let uuid_text = uuid::Uuid::new_v4().simple().to_string();
-    let short_id = &uuid_text[..8];
-    let payload = CreateArticleDto {
-        name: format!("tag-{short_id}"),
-        category: uuid::Uuid::parse_str(TEST_CATEGORY_ID).unwrap(),
-        description: "Ein Testartikel mit Tags".to_string(),
-        town: uuid::Uuid::parse_str(TEST_TOWN_ID).unwrap(),
-        status: ArticleStatus::Aktiv,
-        tags: vec![
+    let payload = test_article_payload(
+        "tag",
+        vec![
             "#Werkzeug".to_string(),
             "Freizeit".to_string(),
             "werkzeug".to_string(),
         ],
-        created_by: uuid::Uuid::nil(),
-        modified_by: uuid::Uuid::nil(),
-    };
+    );
+    let (boundary, request_body) = build_multipart_article_request(&payload, &[], None);
 
-    let session_cookie = login_and_get_session_cookie().await;
-    let response =
-        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
+    let session_cookie = signup_and_get_session_cookie().await;
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article/mine/upload",
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        request_body,
+    )
+    .await;
     let (parts, body) = response.into_parts();
-    let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<CreateArticleWithPicturesResponseDto> =
+        deserialize_json_body(body).await.unwrap();
 
     assert_eq!(parts.status, StatusCode::OK);
-    let article = response_body.0.data.unwrap();
+    let article = response_body.0.data.unwrap().article;
     let slugs: Vec<String> = article.tags.iter().map(|tag| tag.slug.clone()).collect();
 
     assert_eq!(slugs, vec!["freizeit".to_string(), "werkzeug".to_string()]);
@@ -293,6 +315,38 @@ async fn test_get_article_form_options() {
 }
 
 #[tokio::test]
+async fn test_admin_cannot_create_article() {
+    let payload = test_article_payload("admin-create", Vec::new());
+    let session_cookie = login_and_get_session_cookie().await;
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article",
+        &session_cookie,
+        "application/json",
+        serde_json::to_vec(&payload).unwrap(),
+    )
+    .await;
+    assert_eq!(
+        response.into_parts().0.status,
+        StatusCode::METHOD_NOT_ALLOWED
+    );
+
+    let (boundary, request_body) = build_multipart_article_request(&payload, &[], None);
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article/upload",
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        request_body,
+    )
+    .await;
+    assert_eq!(
+        response.into_parts().0.status,
+        StatusCode::METHOD_NOT_ALLOWED
+    );
+}
+
+#[tokio::test]
 async fn test_get_article_by_id_public() {
     let (_, created_article) = create_article().await.expect("Failed to create article");
 
@@ -351,10 +405,7 @@ async fn test_create_article_with_picture_and_fetch_file() {
 
     let bytes = body.collect().await.unwrap().to_bytes();
     assert_eq!(&bytes[..], b"fake-image-data");
-    assert_eq!(
-        uploaded_file.created_by,
-        Some(uuid::Uuid::parse_str(TEST_AUTH_USER_ID).unwrap())
-    );
+    assert_eq!(uploaded_file.created_by, created.article.created_by);
 }
 
 #[tokio::test]

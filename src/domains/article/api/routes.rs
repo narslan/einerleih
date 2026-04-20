@@ -24,8 +24,6 @@ use utoipa::OpenApi;
         get_my_article_by_id,
         get_article_categories,
         get_article_towns,
-        create_article,
-        create_article_with_pictures,
         create_my_article_with_pictures,
         update_article,
         update_article_with_pictures,
@@ -58,8 +56,6 @@ pub fn public_article_routes() -> Router<AppState> {
 
 pub fn protected_article_routes() -> Router<AppState> {
     Router::new()
-        .route("/", post(create_article))
-        .route("/upload", post(create_article_with_pictures))
         .route("/{id}", put(update_article))
         .route("/{id}/upload", put(update_article_with_pictures))
         .route("/{id}", delete(delete_article))

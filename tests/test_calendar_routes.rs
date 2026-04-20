@@ -6,7 +6,9 @@ use einerleih::{
     domains::{
         article::{
             ArticleStatus,
-            dto::article_dto::{ArticleDto, CreateArticleDto},
+            dto::article_dto::{
+                ArticleDto, CreateArticleDto, CreateArticleWithPicturesResponseDto,
+            },
         },
         calendar::{
             CalendarEntrySource,
@@ -19,7 +21,8 @@ mod test_helpers;
 
 use test_helpers::{
     TEST_CATEGORY_ID, TEST_TOWN_ID, deserialize_json_body, login_and_get_session_cookie,
-    request_with_session, request_with_session_body, signup_and_get_session_cookie,
+    request_with_session, request_with_session_body, request_with_session_raw,
+    signup_and_get_session_cookie,
 };
 
 async fn create_article() -> Result<ArticleDto, AppError> {
@@ -36,19 +39,49 @@ async fn create_article() -> Result<ArticleDto, AppError> {
         modified_by: uuid::Uuid::nil(),
     };
 
+    let boundary = format!("boundary-{}", uuid::Uuid::new_v4().simple());
+    let mut body = Vec::new();
+    append_multipart_text_part(&mut body, &boundary, "name", &payload.name);
+    append_multipart_text_part(
+        &mut body,
+        &boundary,
+        "category",
+        &payload.category.to_string(),
+    );
+    append_multipart_text_part(&mut body, &boundary, "description", &payload.description);
+    append_multipart_text_part(&mut body, &boundary, "town", &payload.town.to_string());
+    append_multipart_text_part(&mut body, &boundary, "status", payload.status.as_str());
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+
     let session_cookie = login_and_get_session_cookie().await;
-    let response =
-        request_with_session_body(Method::POST, "/article", &session_cookie, &payload).await;
+    let response = request_with_session_raw(
+        Method::POST,
+        "/article/mine/upload",
+        &session_cookie,
+        &format!("multipart/form-data; boundary={boundary}"),
+        body,
+    )
+    .await;
     let (parts, body) = response.into_parts();
-    let response_body: RestApiResponse<ArticleDto> = deserialize_json_body(body).await.unwrap();
+    let response_body: RestApiResponse<CreateArticleWithPicturesResponseDto> =
+        deserialize_json_body(body).await.unwrap();
     if parts.status != StatusCode::OK {
         panic!(
-            "expected 200 from POST /article, got {} with body {:?}",
+            "expected 200 from POST /article/mine/upload, got {} with body {:?}",
             parts.status, response_body.0
         );
     }
 
-    Ok(response_body.0.data.unwrap())
+    Ok(response_body.0.data.unwrap().article)
+}
+
+fn append_multipart_text_part(body: &mut Vec<u8>, boundary: &str, name: &str, value: &str) {
+    body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+    body.extend_from_slice(
+        format!("Content-Disposition: form-data; name=\"{name}\"\r\n\r\n").as_bytes(),
+    );
+    body.extend_from_slice(value.as_bytes());
+    body.extend_from_slice(b"\r\n");
 }
 
 fn create_calendar_entry_payload() -> CreateCalendarEntryDto {
