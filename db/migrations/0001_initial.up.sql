@@ -15,7 +15,7 @@ CREATE TABLE users (
     modified_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_users_email ON users(email);
+CREATE UNIQUE INDEX users_email_lower_key ON users(LOWER(email));
 
 CREATE TABLE roles (
     role_id UUID PRIMARY KEY,

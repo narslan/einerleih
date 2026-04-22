@@ -36,6 +36,20 @@ const FIND_USER_BY_ID_QUERY: &str = r#"
     WHERE u.id = $1
     "#;
 
+const FIND_USER_BY_EMAIL_QUERY: &str = r#"
+    SELECT
+        u.id,
+        u.username,
+        u.email,
+        u.created_by,
+        u.created_at,
+        u.modified_by,
+        u.modified_at
+    FROM users u
+    WHERE LOWER(u.email) = LOWER($1)
+    LIMIT 1
+    "#;
+
 const CREATE_USER_QUERY: &str = r#"
     INSERT INTO users (id, username, email, created_by, modified_by)
     VALUES ($1, $2, $3, $4, $5)
@@ -132,6 +146,13 @@ impl UserRepository for UserRepo {
         let client = pool.get().await?;
         let stmt = client.prepare_cached(FIND_USER_BY_ID_QUERY).await?;
         let row = client.query_opt(&stmt, &[&id]).await?;
+        Ok(row.map(|row| map_user_row(&row)))
+    }
+
+    async fn find_by_email(&self, pool: Pool, email: &str) -> Result<Option<User>, PoolError> {
+        let client = pool.get().await?;
+        let stmt = client.prepare_cached(FIND_USER_BY_EMAIL_QUERY).await?;
+        let row = client.query_opt(&stmt, &[&email]).await?;
         Ok(row.map(|row| map_user_row(&row)))
     }
 

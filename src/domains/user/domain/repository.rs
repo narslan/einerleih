@@ -19,6 +19,9 @@ pub trait UserRepository: Send + Sync {
     /// Finds a user by their unique identifier.
     async fn find_by_id(&self, pool: Pool, id: Uuid) -> Result<Option<User>, PoolError>;
 
+    /// Finds a user by email address case-insensitively.
+    async fn find_by_email(&self, pool: Pool, email: &str) -> Result<Option<User>, PoolError>;
+
     /// Finds user list by condition
     async fn find_list(
         &self,

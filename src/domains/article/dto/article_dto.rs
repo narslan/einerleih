@@ -1,13 +1,24 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 use crate::domains::article::domain::model::{Article, ArticleStatus};
 use crate::domains::file::{UploadedFile, dto::file_dto::UploadedFileDto};
 
 const MAX_TAG_COUNT: usize = 12;
 const MAX_TAG_LENGTH: usize = 64;
+
+fn validate_article_description(description: &str) -> Result<(), ValidationError> {
+    if description.trim().is_empty() {
+        return Err(
+            ValidationError::new("article_description_required")
+                .with_message("Description must not be empty".into()),
+        );
+    }
+
+    Ok(())
+}
 
 #[derive(Clone, PartialEq, Debug, Deserialize, Serialize, ToSchema)]
 pub struct ArticleRelationDto {
@@ -62,6 +73,8 @@ pub struct CreateArticleDto {
     #[validate(length(max = 36, message = "Name cannot exceed 36 characters"))]
     pub name: String,
     pub category: uuid::Uuid,
+    #[validate(length(max = 1000, message = "Description cannot exceed 1000 characters"))]
+    #[validate(custom(function = "validate_article_description"))]
     pub description: String,
     pub town: uuid::Uuid,
     pub status: ArticleStatus,
@@ -90,6 +103,8 @@ pub struct UpdateArticleDtoWithIdDto {
     #[validate(length(max = 36, message = "Name cannot exceed 36 characters"))]
     pub name: String,
     pub category: uuid::Uuid,
+    #[validate(length(max = 1000, message = "Description cannot exceed 1000 characters"))]
+    #[validate(custom(function = "validate_article_description"))]
     pub description: String,
     pub town: uuid::Uuid,
     pub status: ArticleStatus,

@@ -101,9 +101,7 @@ pub async fn create_booking(
     Path(article_id): Path<Uuid>,
     Json(payload): Json<CreateBookingDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.created_by = auth.id;
@@ -141,9 +139,7 @@ pub async fn update_booking(
     Path((article_id, booking_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<UpdateBookingDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.modified_by = auth.id;
@@ -163,9 +159,7 @@ pub async fn update_own_booking(
 ) -> Result<impl IntoResponse, AppError> {
     ensure_article_owner(&state, article_id, auth.id).await?;
 
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.modified_by = auth.id;

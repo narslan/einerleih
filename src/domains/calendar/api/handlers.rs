@@ -101,9 +101,7 @@ pub async fn create_calendar_entry(
     Path(article_id): Path<Uuid>,
     Json(payload): Json<CreateCalendarEntryDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.created_by = auth.id;
@@ -124,9 +122,7 @@ pub async fn create_own_calendar_entry(
 ) -> Result<impl IntoResponse, AppError> {
     ensure_article_owner(&state, article_id, auth.id).await?;
 
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.created_by = auth.id;
@@ -156,9 +152,7 @@ pub async fn update_calendar_entry(
     Path((article_id, event_id)): Path<(Uuid, Uuid)>,
     Json(payload): Json<UpdateCalendarEntryDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.modified_by = auth.id;
@@ -178,9 +172,7 @@ pub async fn update_own_calendar_entry(
 ) -> Result<impl IntoResponse, AppError> {
     ensure_article_owner(&state, article_id, auth.id).await?;
 
-    payload
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    payload.validate().map_err(AppError::from)?;
 
     let mut payload = payload;
     payload.modified_by = auth.id;

@@ -64,9 +64,7 @@ pub async fn create_user(
 ) -> Result<impl IntoResponse, AppError> {
     let mut create_user = payload;
     create_user.modified_by = auth.id;
-    create_user
-        .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+    create_user.validate().map_err(AppError::from)?;
 
     let user = state.user_service.create_user(create_user).await?;
 
@@ -86,10 +84,7 @@ pub async fn update_user(
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(payload): Json<UpdateUserDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload.validate().map_err(|err| {
-        tracing::error!("Validation error: {err}");
-        AppError::ValidationError(format!("Invalid input: {}", err))
-    })?;
+    payload.validate().map_err(AppError::from)?;
 
     // Set the modified_by field to the current user's ID.
     let mut payload = payload;

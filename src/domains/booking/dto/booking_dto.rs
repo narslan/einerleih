@@ -1,9 +1,19 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
-use validator::Validate;
+use validator::{Validate, ValidationError};
 
 use crate::domains::booking::domain::model::{Booking, BookingStatus};
+
+fn validate_booking_note(note: &str) -> Result<(), ValidationError> {
+    if note.trim().is_empty() {
+        return Err(ValidationError::new("booking_note_required").with_message(
+            "Booking note must not be empty".into(),
+        ));
+    }
+
+    Ok(())
+}
 
 #[derive(PartialEq, Debug, Deserialize, Serialize, ToSchema)]
 pub struct BookingDto {
@@ -37,6 +47,8 @@ pub struct CreateBookingDto {
     #[validate(email(message = "Requester email must be valid"))]
     #[validate(length(max = 128, message = "Requester email cannot exceed 128 characters"))]
     pub requester_email: Option<String>,
+    #[validate(length(max = 500, message = "Booking note cannot exceed 500 characters"))]
+    #[validate(custom(function = "validate_booking_note"))]
     pub note: Option<String>,
     #[serde(with = "crate::common::ts_format::date")]
     pub start_date: NaiveDate,
@@ -56,6 +68,8 @@ pub struct UpdateBookingDto {
     #[validate(email(message = "Requester email must be valid"))]
     #[validate(length(max = 128, message = "Requester email cannot exceed 128 characters"))]
     pub requester_email: Option<String>,
+    #[validate(length(max = 500, message = "Booking note cannot exceed 500 characters"))]
+    #[validate(custom(function = "validate_booking_note"))]
     pub note: Option<String>,
     #[serde(with = "crate::common::ts_format::date")]
     pub start_date: NaiveDate,

@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, fmt::Write as _};
+use std::{collections::HashMap, error::Error as StdError, fmt::Write as _};
 
 use axum::{
     BoxError,
@@ -9,6 +9,9 @@ use axum::{
 use deadpool_postgres::PoolError;
 use thiserror::Error;
 use tracing::error;
+use validator::{
+    ValidationError as ValidatorFieldError, ValidationErrors, ValidationErrorsKind,
+};
 
 use crate::common::dto::RestApiResponse;
 
@@ -30,6 +33,12 @@ pub enum AppError {
 
     #[error("Validation error: {0}")]
     ValidationError(String),
+
+    #[error("{message}")]
+    ValidationErrors {
+        message: String,
+        errors: HashMap<String, String>,
+    },
 
     #[error("{0}")]
     Conflict(String),
@@ -64,7 +73,9 @@ pub enum AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let status = match &self {
-            AppError::ValidationError(_) => StatusCode::BAD_REQUEST,
+            AppError::ValidationError(_) | AppError::ValidationErrors { .. } => {
+                StatusCode::BAD_REQUEST
+            }
             AppError::DatabaseError(_) | AppError::DatabaseQueryError(_) => {
                 StatusCode::INTERNAL_SERVER_ERROR
             }
@@ -84,14 +95,76 @@ impl IntoResponse for AppError {
 
         log_app_error(&self, status);
 
-        let body = axum::Json(ApiResponse::<()> {
-            status: status.as_u16(),
-            message: self.to_string(),
-            data: None,
+        let body = axum::Json(match self {
+            AppError::ValidationErrors { message, errors } => ApiResponse::<()>::failure_with_errors(
+                status.as_u16(),
+                message,
+                errors,
+            ),
+            error => ApiResponse::<()> {
+                status: status.as_u16(),
+                message: error.to_string(),
+                errors: None,
+                data: None,
+            },
         });
 
         (status, body).into_response()
     }
+}
+
+impl From<ValidationErrors> for AppError {
+    fn from(errors: ValidationErrors) -> Self {
+        AppError::ValidationErrors {
+            message: "Invalid input".to_string(),
+            errors: flatten_validation_errors(&errors),
+        }
+    }
+}
+
+fn flatten_validation_errors(errors: &ValidationErrors) -> HashMap<String, String> {
+    let mut flattened = HashMap::new();
+    collect_validation_errors(None, errors, &mut flattened);
+    flattened
+}
+
+fn collect_validation_errors(
+    prefix: Option<&str>,
+    errors: &ValidationErrors,
+    flattened: &mut HashMap<String, String>,
+) {
+    for (field, kind) in errors.errors() {
+        let field_key = field.to_string();
+        let path = match prefix {
+            Some(prefix) => format!("{prefix}.{field_key}"),
+            None => field_key,
+        };
+
+        match kind {
+            ValidationErrorsKind::Field(field_errors) => {
+                if let Some(error) = field_errors.first() {
+                    flattened.insert(path, validation_error_message(error));
+                }
+            }
+            ValidationErrorsKind::Struct(nested) => {
+                collect_validation_errors(Some(path.as_str()), nested, flattened);
+            }
+            ValidationErrorsKind::List(items) => {
+                for (index, nested) in items {
+                    let list_path = format!("{path}.{index}");
+                    collect_validation_errors(Some(list_path.as_str()), nested, flattened);
+                }
+            }
+        }
+    }
+}
+
+fn validation_error_message(error: &ValidatorFieldError) -> String {
+    error
+        .message
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| error.code.to_string())
 }
 
 fn log_app_error(error: &AppError, status: StatusCode) {

@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use deadpool_postgres::{Pool, PoolError};
 use tokio_postgres::error::SqlState;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -22,17 +23,49 @@ pub struct UserService {
     pub repo: Arc<dyn UserRepository + Send + Sync>,
 }
 
-fn map_create_user_error(err: PoolError) -> AppError {
+fn field_validation_error(field: &str, message: &str) -> AppError {
+    AppError::ValidationErrors {
+        message: "Invalid input".into(),
+        errors: HashMap::from([(field.to_string(), message.to_string())]),
+    }
+}
+
+fn map_user_write_error(err: PoolError) -> AppError {
     if let PoolError::Backend(db_err) = &err {
-        if let Some(db_error) = db_err.as_db_error()
-            && db_error.code() == &SqlState::UNIQUE_VIOLATION
-            && db_error.constraint() == Some("users_username_key")
+        if let Some(db_error) = db_err.as_db_error() && db_error.code() == &SqlState::UNIQUE_VIOLATION
         {
-            return AppError::Conflict("Username is already taken".into());
+            if db_error.constraint() == Some("users_username_key") {
+                return field_validation_error("username", "Dieser Benutzername ist bereits vergeben.");
+            }
+
+            if db_error.constraint() == Some("users_email_key")
+                || db_error.constraint() == Some("users_email_lower_key")
+            {
+                return field_validation_error("email", "Diese E-Mail-Adresse wird bereits verwendet.");
+            }
         }
     }
 
     AppError::DatabaseError(err)
+}
+
+impl UserService {
+    async fn ensure_email_is_available(
+        &self,
+        email: &str,
+        exclude_user_id: Option<Uuid>,
+    ) -> Result<(), AppError> {
+        match self.repo.find_by_email(self.pool.clone(), email).await {
+            Ok(Some(user)) if Some(user.id) != exclude_user_id => {
+                Err(field_validation_error("email", "Diese E-Mail-Adresse wird bereits verwendet."))
+            }
+            Ok(_) => Ok(()),
+            Err(err) => {
+                tracing::error!("Error checking email uniqueness: {err}");
+                Err(AppError::DatabaseError(err))
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -95,11 +128,13 @@ impl UserServiceTrait for UserService {
     }
     /// Creates a new user.
     async fn create_user(&self, create_user: CreateUserDto) -> Result<UserDto, AppError> {
+        self.ensure_email_is_available(&create_user.email, None).await?;
+
         let user_id = match self.repo.create(self.pool.clone(), create_user).await {
             Ok(user_id) => user_id,
             Err(err) => {
                 tracing::error!("Error creating user: {err}");
-                return Err(map_create_user_error(err));
+                return Err(map_user_write_error(err));
             }
         };
 
@@ -115,12 +150,14 @@ impl UserServiceTrait for UserService {
 
     /// Updates an existing user.
     async fn update_user(&self, id: Uuid, payload: UpdateUserDto) -> Result<UserDto, AppError> {
+        self.ensure_email_is_available(&payload.email, Some(id)).await?;
+
         match self.repo.update(self.pool.clone(), id, payload).await {
             Ok(Some(user)) => Ok(UserDto::from(user)),
             Ok(None) => Err(AppError::NotFound("User not found".into())),
             Err(err) => {
                 tracing::error!("Error updating user: {err}");
-                Err(AppError::DatabaseError(err))
+                Err(map_user_write_error(err))
             }
         }
     }

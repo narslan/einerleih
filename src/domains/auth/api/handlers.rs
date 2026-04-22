@@ -28,7 +28,7 @@ pub async fn sign_up_user(
 ) -> Result<impl IntoResponse, AppError> {
     payload
         .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+        .map_err(AppError::from)?;
 
     let created_user = state
         .user_service

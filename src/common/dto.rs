@@ -1,5 +1,6 @@
 use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// A standardized API response format.
 #[derive(Serialize, Deserialize, Debug)]
@@ -9,6 +10,7 @@ where
 {
     pub status: u16,
     pub message: String,
+    pub errors: Option<HashMap<String, String>>,
     pub data: Option<T>,
 }
 
@@ -27,6 +29,7 @@ where
         Self {
             status: 200,
             message: "success".to_string(),
+            errors: None,
             data: Some(data),
         }
     }
@@ -36,6 +39,7 @@ where
         Self {
             status: 200,
             message: message.into(),
+            errors: None,
             data: Some(data),
         }
     }
@@ -45,6 +49,21 @@ where
         Self {
             status,
             message: message.into(),
+            errors: None,
+            data: None,
+        }
+    }
+
+    /// Create a failure response with field-specific validation errors.
+    pub fn failure_with_errors(
+        status: u16,
+        message: impl Into<String>,
+        errors: HashMap<String, String>,
+    ) -> Self {
+        Self {
+            status,
+            message: message.into(),
+            errors: Some(errors),
             data: None,
         }
     }
@@ -74,6 +93,15 @@ impl<T: Serialize> RestApiResponse<T> {
     /// Return a failed response with a status code and message.
     pub fn failure(status: u16, message: impl Into<String>) -> Self {
         Self(ApiResponse::failure(status, message))
+    }
+
+    /// Return a failed response with field-specific validation errors.
+    pub fn failure_with_errors(
+        status: u16,
+        message: impl Into<String>,
+        errors: HashMap<String, String>,
+    ) -> Self {
+        Self(ApiResponse::failure_with_errors(status, message, errors))
     }
 }
 

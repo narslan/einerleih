@@ -29,7 +29,11 @@ pub struct SearchUserDto {
 }
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct CreateUserDto {
-    #[validate(length(max = 64, message = "Username cannot exceed 64 characters"))]
+    #[validate(length(
+        min = 3,
+        max = 64,
+        message = "Username must be between 3 and 64 characters"
+    ))]
     pub username: String,
     #[validate(email(message = "Invalid email format"))]
     pub email: String,
@@ -39,7 +43,11 @@ pub struct CreateUserDto {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 pub struct UpdateUserDto {
-    #[validate(length(max = 64, message = "Username cannot exceed 64 characters"))]
+    #[validate(length(
+        min = 3,
+        max = 64,
+        message = "Username must be between 3 and 64 characters"
+    ))]
     pub username: String,
     #[validate(email(message = "Invalid email format"))]
     pub email: String,

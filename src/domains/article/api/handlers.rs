@@ -157,7 +157,7 @@ pub async fn create_my_article_with_pictures(
 
     create_article
         .validate()
-        .map_err(|err| AppError::ValidationError(format!("Invalid input: {}", err)))?;
+        .map_err(AppError::from)?;
 
     let pictures = files.get("photos").cloned().unwrap_or_default();
     let new_picture_meta: Vec<NewArticlePictureDto> =
@@ -183,10 +183,7 @@ pub async fn update_article(
     axum::extract::Path(id): axum::extract::Path<Uuid>,
     Json(payload): Json<UpdateArticleDtoWithIdDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload.validate().map_err(|err| {
-        tracing::error!("Validation error: {err}");
-        AppError::ValidationError(format!("Invalid input: {}", err))
-    })?;
+    payload.validate().map_err(AppError::from)?;
 
     // Set the modified_by field to the current article's ID.
     let mut payload = payload;
@@ -222,10 +219,7 @@ pub async fn update_article_with_pictures(
         modified_by: auth.id,
     };
 
-    payload.validate().map_err(|err| {
-        tracing::error!("Validation error: {err}");
-        AppError::ValidationError(format!("Invalid input: {}", err))
-    })?;
+    payload.validate().map_err(AppError::from)?;
 
     let existing_pictures: Vec<ExistingArticlePictureDto> =
         parse_optional_json_multi_field(&fields, "existing_pictures")?.unwrap_or_default();
@@ -279,10 +273,7 @@ pub async fn update_my_article_with_pictures(
         modified_by: auth.id,
     };
 
-    payload.validate().map_err(|err| {
-        tracing::error!("Validation error: {err}");
-        AppError::ValidationError(format!("Invalid input: {}", err))
-    })?;
+    payload.validate().map_err(AppError::from)?;
 
     let existing_pictures: Vec<ExistingArticlePictureDto> =
         parse_optional_json_multi_field(&fields, "existing_pictures")?.unwrap_or_default();
