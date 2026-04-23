@@ -56,16 +56,17 @@ pub fn setup_tracing() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,tower_http=info,axum::rejection=trace".into()),
+                .unwrap_or_else(|_| "info,axum::rejection=warn".into()),
         )
         .with(
             tracing_subscriber::fmt::layer()
-                .with_file(true)
-                .with_line_number(true)
-                .with_thread_ids(true)
-                .with_thread_names(true)
-                .with_target(true)
-                .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE),
+                .compact()
+                .without_time()
+                .with_file(false)
+                .with_line_number(false)
+                .with_thread_ids(false)
+                .with_thread_names(false)
+                .with_target(false),
         )
         .init();
 }
@@ -76,5 +77,4 @@ pub async fn shutdown_signal() {
     tokio::signal::ctrl_c()
         .await
         .expect("Failed to install CTRL+C signal handler");
-    println!("got a ctrl+c")
 }

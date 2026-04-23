@@ -158,6 +158,9 @@ pub fn create_router(state: AppState) -> Router {
                         uri = %req.uri(),
                     )
                 })
+                .on_request(
+                    |_request: &axum::http::Request<_>, _span: &tracing::Span| {},
+                )
                 .on_response(
                     |response: &axum::http::Response<_>,
                      latency: std::time::Duration,
