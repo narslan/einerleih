@@ -8,7 +8,7 @@ use crate::{
     domains::{
         auth::dto::auth_dto::{
             AuthPayload, AuthSessionDto, AuthUserDto, ResendVerificationEmailDto, SignUpDto,
-            VerifyEmailQueryDto,
+            VerificationLinkDebugDto, VerifyEmailQueryDto,
         },
         notification::{NotificationKind, dto::notification_dto::EnqueueEmailNotificationDto},
         user::dto::user_dto::{CreateUserDto, UserDto},
@@ -22,7 +22,7 @@ use validator::Validate;
     post,
     path = "/auth/signup",
     request_body = SignUpDto,
-    responses((status = 200, description = "Create user and send email verification instructions")),
+    responses((status = 200, description = "Create user and send email verification instructions", body = VerificationLinkDebugDto)),
     tag = "UserAuth"
 )]
 pub async fn sign_up_user(
@@ -48,11 +48,13 @@ pub async fn sign_up_user(
         })
         .await?;
     session_auth::assign_signup_role(&state.pool, created_user.id).await?;
-    enqueue_signup_verification_email(&state, &created_user).await?;
+    let verification_url = enqueue_signup_verification_email(&state, &created_user).await?;
 
     Ok(RestApiResponse::success_with_message(
         "Bitte bestaetige zuerst deine E-Mail-Adresse. Wir haben dir einen Link geschickt.",
-        (),
+        VerificationLinkDebugDto {
+            verification_url: maybe_expose_verification_url(&state, verification_url),
+        },
     ))
 }
 
@@ -149,7 +151,7 @@ pub async fn verify_email(
     post,
     path = "/auth/resend-verification",
     request_body = ResendVerificationEmailDto,
-    responses((status = 200, description = "Resend email verification instructions")),
+    responses((status = 200, description = "Resend email verification instructions", body = VerificationLinkDebugDto)),
     tag = "UserAuth"
 )]
 pub async fn resend_verification_email(
@@ -168,15 +170,20 @@ pub async fn resend_verification_email(
         })
         .await?;
 
+    let mut verification_url = None;
+
     if let Some(user) = users.first()
         && user.email_verified_at.is_none()
     {
-        enqueue_signup_verification_email(&state, user).await?;
+        verification_url = Some(enqueue_signup_verification_email(&state, user).await?);
     }
 
     Ok(RestApiResponse::success_with_message(
         "Wenn fuer diese E-Mail-Adresse ein unbestaetigtes Konto existiert, haben wir einen neuen Link geschickt.",
-        (),
+        VerificationLinkDebugDto {
+            verification_url: verification_url
+                .and_then(|url| maybe_expose_verification_url(&state, url)),
+        },
     ))
 }
 
@@ -189,7 +196,7 @@ fn roles_from_session_user(user: &SessionUser) -> Vec<String> {
 async fn enqueue_signup_verification_email(
     state: &AppState,
     user: &UserDto,
-) -> Result<(), AppError> {
+) -> Result<String, AppError> {
     let verification_token = state
         .auth_service
         .issue_email_verification_token(user.id)
@@ -222,5 +229,12 @@ async fn enqueue_signup_verification_email(
         tracing::error!("Error dispatching signup verification email: {err}");
     }
 
-    Ok(())
+    Ok(verification_url)
+}
+
+fn maybe_expose_verification_url(state: &AppState, verification_url: String) -> Option<String> {
+    state
+        .config
+        .expose_email_verification_links
+        .then_some(verification_url)
 }

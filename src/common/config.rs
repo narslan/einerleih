@@ -31,6 +31,9 @@ pub struct Config {
     #[serde(default = "default_public_app_url")]
     pub public_app_url: String,
 
+    #[serde(default)]
+    pub expose_email_verification_links: bool,
+
     pub bootstrap_admin_username: Option<String>,
     pub bootstrap_admin_email: Option<String>,
     pub bootstrap_admin_password: Option<String>,

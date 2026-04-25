@@ -24,6 +24,7 @@ use utoipa::OpenApi;
         crate::domains::auth::dto::auth_dto::SignUpDto,
         crate::domains::auth::dto::auth_dto::ResendVerificationEmailDto,
         crate::domains::auth::dto::auth_dto::AuthSessionDto,
+        crate::domains::auth::dto::auth_dto::VerificationLinkDebugDto,
         crate::domains::auth::dto::auth_dto::VerifyEmailQueryDto,
     )),
     tags(

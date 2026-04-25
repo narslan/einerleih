@@ -64,6 +64,11 @@ pub struct AuthSessionDto {
     pub roles: Vec<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct VerificationLinkDebugDto {
+    pub verification_url: Option<String>,
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct VerifyEmailQueryDto {
     pub token: String,
