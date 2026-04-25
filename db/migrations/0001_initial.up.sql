@@ -9,6 +9,7 @@ CREATE TABLE users (
     id           UUID PRIMARY KEY,
     username     VARCHAR(64) NOT NULL UNIQUE,
     email        VARCHAR(128) NOT NULL,
+    email_verified_at TIMESTAMPTZ,
     created_by   UUID,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     modified_by  UUID,
@@ -176,6 +177,39 @@ CREATE INDEX idx_mailbox_entry_owner_created
 
 CREATE INDEX idx_mailbox_entry_booking_id
     ON mailbox_entry(booking_id);
+
+CREATE TABLE notification_outbox (
+    notification_id UUID PRIMARY KEY,
+    kind VARCHAR(48) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'sent', 'failed')),
+    recipient_email VARCHAR(128) NOT NULL,
+    subject VARCHAR(200) NOT NULL,
+    body_text TEXT NOT NULL,
+    booking_id UUID REFERENCES booking(booking_id) ON DELETE SET NULL,
+    article_id UUID REFERENCES article(article_id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    attempt_count INT NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    last_error TEXT,
+    sent_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_notification_outbox_status_created
+    ON notification_outbox(status, created_at);
+
+CREATE TABLE email_verification_token (
+    verification_token_id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(128) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_email_verification_token_user_id
+    ON email_verification_token(user_id);
 
 CREATE TABLE user_auth (
     user_id UUID PRIMARY KEY,

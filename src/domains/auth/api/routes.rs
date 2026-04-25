@@ -16,11 +16,15 @@ use utoipa::OpenApi;
         super::handlers::logout_user,
         super::handlers::sign_up_user,
         super::handlers::session,
+        super::handlers::verify_email,
+        super::handlers::resend_verification_email,
     ),
     components(schemas(
         crate::domains::auth::dto::auth_dto::AuthPayload,
         crate::domains::auth::dto::auth_dto::SignUpDto,
+        crate::domains::auth::dto::auth_dto::ResendVerificationEmailDto,
         crate::domains::auth::dto::auth_dto::AuthSessionDto,
+        crate::domains::auth::dto::auth_dto::VerifyEmailQueryDto,
     )),
     tags(
         (name = "UserAuth", description = "User authentication endpoints")
@@ -37,4 +41,9 @@ pub fn user_auth_routes() -> Router<AppState> {
         .route("/logout", post(handlers::logout_user))
         .route("/signup", post(handlers::sign_up_user))
         .route("/session", get(handlers::session))
+        .route("/verify-email", get(handlers::verify_email))
+        .route(
+            "/resend-verification",
+            post(handlers::resend_verification_email),
+        )
 }

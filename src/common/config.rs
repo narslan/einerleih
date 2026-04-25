@@ -22,6 +22,15 @@ pub struct Config {
     #[serde(default)]
     pub session_cookie_secure: bool,
 
+    #[serde(default = "default_notification_file_output_dir")]
+    pub notification_file_output_dir: String,
+
+    #[serde(default = "default_public_api_url")]
+    pub public_api_url: String,
+
+    #[serde(default = "default_public_app_url")]
+    pub public_app_url: String,
+
     pub bootstrap_admin_username: Option<String>,
     pub bootstrap_admin_email: Option<String>,
     pub bootstrap_admin_password: Option<String>,
@@ -39,6 +48,18 @@ impl Config {
 
 fn default_session_cookie_name() -> String {
     "einerleih_session".to_string()
+}
+
+fn default_notification_file_output_dir() -> String {
+    "tmp/notifications".to_string()
+}
+
+fn default_public_api_url() -> String {
+    "http://localhost:8000".to_string()
+}
+
+fn default_public_app_url() -> String {
+    "http://localhost:8000".to_string()
 }
 
 pub async fn setup_database(config: &Config) -> Result<Pool, CreatePoolError> {

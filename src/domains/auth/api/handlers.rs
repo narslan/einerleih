@@ -6,11 +6,15 @@ use crate::{
         session_auth::{self, AuthSession, SessionUser},
     },
     domains::{
-        auth::dto::auth_dto::{AuthPayload, AuthSessionDto, AuthUserDto, SignUpDto},
-        user::dto::user_dto::CreateUserDto,
+        auth::dto::auth_dto::{
+            AuthPayload, AuthSessionDto, AuthUserDto, ResendVerificationEmailDto, SignUpDto,
+            VerifyEmailQueryDto,
+        },
+        notification::{NotificationKind, dto::notification_dto::EnqueueEmailNotificationDto},
+        user::dto::user_dto::{CreateUserDto, UserDto},
     },
 };
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::{Json, response::IntoResponse};
 use validator::Validate;
 
@@ -18,17 +22,14 @@ use validator::Validate;
     post,
     path = "/auth/signup",
     request_body = SignUpDto,
-    responses((status = 200, description = "Create user and login session", body = AuthSessionDto)),
+    responses((status = 200, description = "Create user and send email verification instructions")),
     tag = "UserAuth"
 )]
 pub async fn sign_up_user(
     State(state): State<AppState>,
-    mut auth_session: AuthSession,
     Json(payload): Json<SignUpDto>,
 ) -> Result<impl IntoResponse, AppError> {
-    payload
-        .validate()
-        .map_err(AppError::from)?;
+    payload.validate().map_err(AppError::from)?;
 
     let created_user = state
         .user_service
@@ -47,28 +48,12 @@ pub async fn sign_up_user(
         })
         .await?;
     session_auth::assign_signup_role(&state.pool, created_user.id).await?;
+    enqueue_signup_verification_email(&state, &created_user).await?;
 
-    let auth_payload = AuthPayload {
-        client_id: created_user.username.clone(),
-        client_secret: payload.password,
-    };
-    let session_user = auth_session
-        .authenticate(auth_payload)
-        .await
-        .map_err(|err| {
-            tracing::error!("Error authenticating new user session: {err}");
-            AppError::InternalError
-        })?
-        .ok_or(AppError::WrongCredentials)?;
-    auth_session.login(&session_user).await.map_err(|err| {
-        tracing::error!("Error creating login session after signup: {err}");
-        AppError::InternalError
-    })?;
-
-    Ok(RestApiResponse::success(AuthSessionDto {
-        user: created_user,
-        roles: roles_from_session_user(&session_user),
-    }))
+    Ok(RestApiResponse::success_with_message(
+        "Bitte bestaetige zuerst deine E-Mail-Adresse. Wir haben dir einen Link geschickt.",
+        (),
+    ))
 }
 
 /// this function creates a router for login user
@@ -142,8 +127,100 @@ pub async fn session(
     }))
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/verify-email",
+    params(("token" = String, Query, description = "Email verification token")),
+    responses((status = 200, description = "Verify email address")),
+    tag = "UserAuth"
+)]
+pub async fn verify_email(
+    State(state): State<AppState>,
+    Query(query): Query<VerifyEmailQueryDto>,
+) -> Result<impl IntoResponse, AppError> {
+    state.auth_service.verify_email_token(query.token).await?;
+    Ok(RestApiResponse::success_with_message(
+        "E-Mail-Adresse bestaetigt.",
+        (),
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/auth/resend-verification",
+    request_body = ResendVerificationEmailDto,
+    responses((status = 200, description = "Resend email verification instructions")),
+    tag = "UserAuth"
+)]
+pub async fn resend_verification_email(
+    State(state): State<AppState>,
+    Json(payload): Json<ResendVerificationEmailDto>,
+) -> Result<impl IntoResponse, AppError> {
+    payload.validate().map_err(AppError::from)?;
+
+    let email = payload.email.trim().to_string();
+    let users = state
+        .user_service
+        .get_user_list(crate::domains::user::dto::user_dto::SearchUserDto {
+            id: None,
+            username: None,
+            email: Some(email.clone()),
+        })
+        .await?;
+
+    if let Some(user) = users.first()
+        && user.email_verified_at.is_none()
+    {
+        enqueue_signup_verification_email(&state, user).await?;
+    }
+
+    Ok(RestApiResponse::success_with_message(
+        "Wenn fuer diese E-Mail-Adresse ein unbestaetigtes Konto existiert, haben wir einen neuen Link geschickt.",
+        (),
+    ))
+}
+
 fn roles_from_session_user(user: &SessionUser) -> Vec<String> {
     let mut roles: Vec<String> = user.roles.iter().cloned().collect();
     roles.sort();
     roles
+}
+
+async fn enqueue_signup_verification_email(
+    state: &AppState,
+    user: &UserDto,
+) -> Result<(), AppError> {
+    let verification_token = state
+        .auth_service
+        .issue_email_verification_token(user.id)
+        .await?;
+    let verification_url = format!(
+        "{}/email-verifizieren?token={verification_token}",
+        state.config.public_app_url.trim_end_matches('/')
+    );
+    let verification_subject = "Bitte bestaetige deine E-Mail-Adresse".to_string();
+    let verification_body = format!(
+        "Hallo {username},\n\nbitte bestaetige deine E-Mail-Adresse fuer Einerleih ueber diesen Link:\n{verification_url}\n\nDer Link ist 24 Stunden gueltig.",
+        username = user.username
+    );
+
+    state
+        .notification_service
+        .enqueue_email(EnqueueEmailNotificationDto {
+            kind: NotificationKind::SignupConfirmation,
+            recipient_email: user.email.clone().unwrap_or_default(),
+            subject: verification_subject,
+            body_text: verification_body,
+            booking_id: None,
+            article_id: None,
+            user_id: Some(user.id),
+            created_by: Some(user.id),
+        })
+        .await?;
+
+    if let Err(err) = state.notification_service.dispatch_pending(10).await {
+        tracing::error!("Error dispatching signup verification email: {err}");
+    }
+
+    Ok(())
 }

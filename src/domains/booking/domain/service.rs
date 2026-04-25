@@ -6,14 +6,20 @@ use uuid::Uuid;
 
 use crate::{
     common::error::AppError,
-    domains::booking::dto::booking_dto::{
-        BookingDto, BookingFilterDto, CreateBookingDto, UpdateBookingDto,
+    domains::{
+        booking::dto::booking_dto::{
+            BookingDto, BookingFilterDto, CreateBookingDto, UpdateBookingDto,
+        },
+        notification::NotificationServiceTrait,
     },
 };
 
 #[async_trait]
 pub trait BookingServiceTrait: Send + Sync {
-    fn create_service(pool: Pool) -> Arc<dyn BookingServiceTrait>
+    fn create_service(
+        pool: Pool,
+        notification_service: Arc<dyn NotificationServiceTrait>,
+    ) -> Arc<dyn BookingServiceTrait>
     where
         Self: Sized;
 

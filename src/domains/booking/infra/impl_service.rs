@@ -18,6 +18,10 @@ use crate::{
     domains::mailbox::{
         MailboxRepo, MailboxRepository, dto::mailbox_dto::CreateBookingRequestMailboxEntriesDto,
     },
+    domains::notification::{
+        NotificationOutboxRepo, NotificationOutboxRepository, NotificationServiceTrait,
+        dto::notification_dto::CreateBookingRequestNotificationDto,
+    },
 };
 
 #[derive(Clone)]
@@ -25,6 +29,8 @@ pub struct BookingService {
     pub pool: Pool,
     pub repo: Arc<dyn BookingRepository + Send + Sync>,
     pub mailbox_repo: Arc<dyn MailboxRepository + Send + Sync>,
+    pub notification_repo: Arc<dyn NotificationOutboxRepository + Send + Sync>,
+    pub notification_service: Arc<dyn NotificationServiceTrait>,
 }
 
 fn validate_date_order(
@@ -42,11 +48,16 @@ fn validate_date_order(
 
 #[async_trait]
 impl BookingServiceTrait for BookingService {
-    fn create_service(pool: Pool) -> Arc<dyn BookingServiceTrait> {
+    fn create_service(
+        pool: Pool,
+        notification_service: Arc<dyn NotificationServiceTrait>,
+    ) -> Arc<dyn BookingServiceTrait> {
         Arc::new(Self {
             pool,
             repo: Arc::new(BookingRepo {}),
             mailbox_repo: Arc::new(MailboxRepo {}),
+            notification_repo: Arc::new(NotificationOutboxRepo {}),
+            notification_service,
         })
     }
 
@@ -121,6 +132,13 @@ impl BookingServiceTrait for BookingService {
             note: payload.note.clone(),
             created_by: payload.created_by,
         };
+        let notification_payload = CreateBookingRequestNotificationDto {
+            booking_id,
+            article_id,
+            requester_name: payload.requester_name.clone(),
+            note: payload.note.clone(),
+            created_by: Some(payload.created_by),
+        };
 
         if let Err(err) = self
             .repo
@@ -142,10 +160,24 @@ impl BookingServiceTrait for BookingService {
             return Err(AppError::DatabaseError(err));
         }
 
+        if let Err(err) = self
+            .notification_repo
+            .enqueue_booking_request(&mut tx, notification_payload)
+            .await
+        {
+            tracing::error!("Error enqueuing booking request notification: {err}");
+            let _ = tx.rollback().await;
+            return Err(AppError::DatabaseError(err));
+        }
+
         tx.commit().await.map_err(|err| {
             tracing::error!("Error committing booking creation: {err}");
             AppError::InternalError
         })?;
+
+        if let Err(err) = self.notification_service.dispatch_pending(10).await {
+            tracing::error!("Error dispatching queued notifications after booking creation: {err}");
+        }
 
         self.get_booking(article_id, booking_id).await
     }

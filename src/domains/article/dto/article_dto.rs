@@ -11,10 +11,8 @@ const MAX_TAG_LENGTH: usize = 64;
 
 fn validate_article_description(description: &str) -> Result<(), ValidationError> {
     if description.trim().is_empty() {
-        return Err(
-            ValidationError::new("article_description_required")
-                .with_message("Description must not be empty".into()),
-        );
+        return Err(ValidationError::new("article_description_required")
+            .with_message("Description must not be empty".into()));
     }
 
     Ok(())

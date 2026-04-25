@@ -155,9 +155,7 @@ pub async fn create_my_article_with_pictures(
         modified_by: auth.id,
     };
 
-    create_article
-        .validate()
-        .map_err(AppError::from)?;
+    create_article.validate().map_err(AppError::from)?;
 
     let pictures = files.get("photos").cloned().unwrap_or_default();
     let new_picture_meta: Vec<NewArticlePictureDto> =

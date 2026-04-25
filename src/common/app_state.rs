@@ -9,6 +9,7 @@ use crate::domains::{
     calendar::CalendarServiceTrait,
     file::FileServiceTrait,
     mailbox::MailboxServiceTrait,
+    notification::NotificationServiceTrait,
     user::UserServiceTrait,
 };
 
@@ -42,6 +43,9 @@ pub struct AppState {
     /// Service handling current-user mailbox entries.
     pub mailbox_service: Arc<dyn MailboxServiceTrait>,
 
+    /// Service handling queued outbound notifications.
+    pub notification_service: Arc<dyn NotificationServiceTrait>,
+
     /// Global application configuration.
     pub config: Config,
 }
@@ -58,6 +62,7 @@ impl AppState {
         calendar_service: Arc<dyn CalendarServiceTrait>,
         booking_service: Arc<dyn BookingServiceTrait>,
         mailbox_service: Arc<dyn MailboxServiceTrait>,
+        notification_service: Arc<dyn NotificationServiceTrait>,
     ) -> Self {
         Self {
             pool,
@@ -70,6 +75,7 @@ impl AppState {
             calendar_service,
             booking_service,
             mailbox_service,
+            notification_service,
         }
     }
 }

@@ -13,6 +13,8 @@ pub struct UserDto {
     pub id: Uuid,
     pub username: String,
     pub email: Option<String>,
+    #[serde(with = "crate::common::ts_format::option")]
+    pub email_verified_at: Option<DateTime<Utc>>,
     pub created_by: Option<uuid::Uuid>,
     #[serde(with = "crate::common::ts_format::option")]
     pub created_at: Option<DateTime<Utc>>,

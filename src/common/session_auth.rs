@@ -24,6 +24,7 @@ pub struct SessionUser {
     pub id: Uuid,
     pub username: String,
     pub email: Option<String>,
+    pub email_verified: bool,
     pub roles: HashSet<String>,
     password_hash: String,
 }
@@ -89,6 +90,12 @@ impl AuthnBackend for AuthBackend {
 
         if !hash_utils::verify_password(&user.password_hash, &credentials.client_secret) {
             return Ok(None);
+        }
+
+        if !user.email_verified {
+            return Err(AppError::ValidationError(
+                "Bitte bestaetige zuerst deine E-Mail-Adresse.".into(),
+            ));
         }
 
         Ok(Some(user))
@@ -233,6 +240,7 @@ const FIND_SESSION_USER_BY_USERNAME: &str = r#"
         u.id,
         u.username,
         u.email,
+        (u.email_verified_at IS NOT NULL) AS email_verified,
         ua.password_hash,
         COALESCE(
             ARRAY_AGG(r.name::TEXT ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL),
@@ -243,7 +251,7 @@ const FIND_SESSION_USER_BY_USERNAME: &str = r#"
     LEFT JOIN user_roles ur ON ur.user_id = u.id
     LEFT JOIN roles r ON r.role_id = ur.role_id
     WHERE u.username = $1
-    GROUP BY u.id, u.username, u.email, ua.password_hash
+    GROUP BY u.id, u.username, u.email, u.email_verified_at, ua.password_hash
     "#;
 
 const FIND_SESSION_USER_BY_ID: &str = r#"
@@ -251,6 +259,7 @@ const FIND_SESSION_USER_BY_ID: &str = r#"
         u.id,
         u.username,
         u.email,
+        (u.email_verified_at IS NOT NULL) AS email_verified,
         ua.password_hash,
         COALESCE(
             ARRAY_AGG(r.name::TEXT ORDER BY r.name) FILTER (WHERE r.name IS NOT NULL),
@@ -261,7 +270,7 @@ const FIND_SESSION_USER_BY_ID: &str = r#"
     LEFT JOIN user_roles ur ON ur.user_id = u.id
     LEFT JOIN roles r ON r.role_id = ur.role_id
     WHERE u.id = $1
-    GROUP BY u.id, u.username, u.email, ua.password_hash
+    GROUP BY u.id, u.username, u.email, u.email_verified_at, ua.password_hash
     "#;
 
 const ADMIN_EXISTS: &str = r#"
@@ -283,11 +292,12 @@ const ASSIGN_ROLE: &str = r#"
 
 const UPSERT_BOOTSTRAP_ADMIN_USER: &str = r#"
     WITH upserted_user AS (
-        INSERT INTO users (id, username, email, created_by, modified_by)
-        VALUES ($1, $2, $3, NULL, NULL)
+        INSERT INTO users (id, username, email, email_verified_at, created_by, modified_by)
+        VALUES ($1, $2, $3, NOW(), NULL, NULL)
         ON CONFLICT (username) DO UPDATE
         SET
             email = EXCLUDED.email,
+            email_verified_at = COALESCE(users.email_verified_at, NOW()),
             modified_at = NOW()
         RETURNING id
     )
@@ -302,13 +312,14 @@ const UPSERT_BOOTSTRAP_ADMIN_USER: &str = r#"
     "#;
 
 fn map_session_user_row(row: &Row) -> SessionUser {
-    let roles: Vec<String> = row.get(4);
+    let roles: Vec<String> = row.get(5);
 
     SessionUser {
         id: row.get(0),
         username: row.get(1),
         email: row.get(2),
-        password_hash: row.get(3),
+        email_verified: row.get(3),
+        password_hash: row.get(4),
         roles: roles.into_iter().collect(),
     }
 }

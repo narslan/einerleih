@@ -15,6 +15,7 @@ const FIND_USER_BASE_QUERY: &str = r#"
         u.id,
         u.username,
         u.email,
+        u.email_verified_at,
         u.created_by,
         u.created_at,
         u.modified_by,
@@ -28,6 +29,7 @@ const FIND_USER_BY_ID_QUERY: &str = r#"
         u.id,
         u.username,
         u.email,
+        u.email_verified_at,
         u.created_by,
         u.created_at,
         u.modified_by,
@@ -41,6 +43,7 @@ const FIND_USER_BY_EMAIL_QUERY: &str = r#"
         u.id,
         u.username,
         u.email,
+        u.email_verified_at,
         u.created_by,
         u.created_at,
         u.modified_by,
@@ -67,6 +70,7 @@ const UPDATE_USER_QUERY: &str = r#"
         id,
         username,
         email,
+        email_verified_at,
         created_by,
         created_at,
         modified_by,
@@ -83,10 +87,11 @@ fn map_user_row(row: &Row) -> User {
         id: row.get(0),
         username: row.get(1),
         email: row.get(2),
-        created_by: row.get(3),
-        created_at: row.get(4),
-        modified_by: row.get(5),
-        modified_at: row.get(6),
+        email_verified_at: row.get(3),
+        created_by: row.get(4),
+        created_at: row.get(5),
+        modified_by: row.get(6),
+        modified_at: row.get(7),
     }
 }
 
@@ -130,7 +135,10 @@ impl UserRepository for UserRepo {
             .filter(|value| !value.trim().is_empty())
         {
             param_storage.push(Box::new(email));
-            query.push_str(&format!(" AND u.email = ${}", param_storage.len()));
+            query.push_str(&format!(
+                " AND LOWER(u.email) = LOWER(${})",
+                param_storage.len()
+            ));
         }
 
         let stmt = client.prepare(&query).await?;

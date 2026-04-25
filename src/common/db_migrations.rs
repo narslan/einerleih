@@ -170,6 +170,8 @@ async fn drop_application_tables(pool: &Pool) -> MigrationResult<()> {
         .batch_execute(
             "
             DROP TABLE IF EXISTS uploaded_files;
+            DROP TABLE IF EXISTS email_verification_token;
+            DROP TABLE IF EXISTS notification_outbox;
             DROP TABLE IF EXISTS mailbox_entry;
             DROP TABLE IF EXISTS booking;
             DROP TABLE IF EXISTS event_calendar;

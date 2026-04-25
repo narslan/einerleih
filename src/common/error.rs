@@ -9,9 +9,7 @@ use axum::{
 use deadpool_postgres::PoolError;
 use thiserror::Error;
 use tracing::error;
-use validator::{
-    ValidationError as ValidatorFieldError, ValidationErrors, ValidationErrorsKind,
-};
+use validator::{ValidationError as ValidatorFieldError, ValidationErrors, ValidationErrorsKind};
 
 use crate::common::dto::RestApiResponse;
 
@@ -96,11 +94,9 @@ impl IntoResponse for AppError {
         log_app_error(&self, status);
 
         let body = axum::Json(match self {
-            AppError::ValidationErrors { message, errors } => ApiResponse::<()>::failure_with_errors(
-                status.as_u16(),
-                message,
-                errors,
-            ),
+            AppError::ValidationErrors { message, errors } => {
+                ApiResponse::<()>::failure_with_errors(status.as_u16(), message, errors)
+            }
             error => ApiResponse::<()> {
                 status: status.as_u16(),
                 message: error.to_string(),

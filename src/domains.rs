@@ -4,4 +4,5 @@ pub mod booking;
 pub mod calendar;
 pub mod file;
 pub mod mailbox;
+pub mod notification;
 pub mod user;

@@ -9,6 +9,7 @@ use crate::domains::booking::{BookingService, BookingServiceTrait};
 use crate::domains::calendar::{CalendarService, CalendarServiceTrait};
 use crate::domains::file::FileServiceTrait;
 use crate::domains::mailbox::{MailboxService, MailboxServiceTrait};
+use crate::domains::notification::{NotificationService, NotificationServiceTrait};
 use crate::domains::user::UserServiceTrait;
 use crate::{
     common::app_state::AppState,
@@ -32,8 +33,10 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         CalendarService::create_service(pool.clone());
     let mailbox_service: Arc<dyn MailboxServiceTrait> =
         MailboxService::create_service(pool.clone());
+    let notification_service: Arc<dyn NotificationServiceTrait> =
+        NotificationService::create_service(config.clone(), pool.clone());
     let booking_service: Arc<dyn BookingServiceTrait> =
-        BookingService::create_service(pool.clone());
+        BookingService::create_service(pool.clone(), notification_service.clone());
     AppState::new(
         pool,
         config,
@@ -45,6 +48,7 @@ pub fn build_app_state(pool: Pool, config: Config) -> AppState {
         calendar_service,
         booking_service,
         mailbox_service,
+        notification_service,
     )
 }
 

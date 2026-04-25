@@ -7,9 +7,8 @@ use crate::domains::booking::domain::model::{Booking, BookingStatus};
 
 fn validate_booking_note(note: &str) -> Result<(), ValidationError> {
     if note.trim().is_empty() {
-        return Err(ValidationError::new("booking_note_required").with_message(
-            "Booking note must not be empty".into(),
-        ));
+        return Err(ValidationError::new("booking_note_required")
+            .with_message("Booking note must not be empty".into()));
     }
 
     Ok(())

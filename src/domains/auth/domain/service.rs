@@ -23,4 +23,11 @@ pub trait AuthServiceTrait: Send + Sync {
 
     /// Authenticates a user and returns the authenticated user id on success.
     async fn login_user(&self, auth_payload: AuthPayload) -> Result<uuid::Uuid, AppError>;
+
+    /// Issues an email verification token for the given user and returns the raw token.
+    async fn issue_email_verification_token(&self, user_id: uuid::Uuid)
+    -> Result<String, AppError>;
+
+    /// Verifies an email verification token and marks the user as verified.
+    async fn verify_email_token(&self, token: String) -> Result<uuid::Uuid, AppError>;
 }
